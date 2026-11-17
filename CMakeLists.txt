@@ -63,6 +63,10 @@ target_sources(
 	"src/core/assetManager.h" 
 	"src/core/helpers.h" 
 	"src/core/helpers.cpp"
+	"src/core/signal_io.hpp"
+	"src/core/signal_data.hpp"
+	"src/platform/file_browser.hpp"
+	"src/platform/signal_viewer.hpp"
 )
 
 
