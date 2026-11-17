@@ -4,6 +4,8 @@
 #include <imgui.h>
 #include <rlImGui.h>
 
+#include "signal_viewer.hpp"
+
 
 int main(void) {
 
@@ -19,25 +21,24 @@ int main(void) {
 #pragma region imgui
 	rlImGuiSetup(true);
 
-	bool show_demo_window = true;
+	bool show_demo_window = false;
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-	ImGuiIO &io = ImGui::GetIO(); 
+	ImGuiIO& io = ImGui::GetIO();
 	(void)io;
 	////io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
 	////io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;       // Enable gamepad Controls
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
 	io.FontGlobalScale = 2;
-
-
 #pragma endregion
 
+	SignalViewer signal_viewer; // generates the example signals once, up front
 
 	while (!WindowShouldClose()) {
 		BeginDrawing();
 		ClearBackground(BLACK);
 
-	#pragma region imgui
+#pragma region imgui
 		rlImGuiBegin();
 
 		//docking stuff
@@ -46,15 +47,16 @@ int main(void) {
 		ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 		ImGui::PopStyleColor(2);
 
-		ImGui::ShowDemoWindow();
+		signal_viewer.draw();
 
+		if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
 
-	#pragma endregion
+#pragma endregion
 
-	#pragma region imgui
+#pragma region imgui
 		rlImGuiEnd();
 
-	#pragma endregion
+#pragma endregion
 
 		EndDrawing();
 	}
