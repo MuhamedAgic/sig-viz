@@ -16,7 +16,9 @@
 
 #include <imgui.h>
 
+#include "../core/audio_output.hpp"
 #include "file_browser.hpp"
+#include "../core/signal_audio.hpp"
 #include "../core/signal_data.hpp"
 #include "../core/signal_io.hpp"
 
@@ -164,6 +166,7 @@ public:
 	void draw() {
 		ImGui::SetNextWindowSize({ 1000.0f, 700.0f }, ImGuiCond_FirstUseEver);
 		if (!ImGui::Begin("Signal Viewer")) {
+			audio_.stop(); // collapsed or hidden tab: playback doesn't advance, so the sound must not either
 			ImGui::End();
 			return;
 		}
@@ -196,6 +199,7 @@ public:
 		}
 
 		draw_transport(duration);
+		draw_audio_controls(signal);
 
 		// Anything that can seek reports whether it is being dragged, so playback
 		// pauses itself while the user is scrubbing.
@@ -212,6 +216,11 @@ public:
 		scrubbing |= draw_scope(signal);
 
 		playback_.scrubbing = scrubbing;
+
+		// The sound follows the playhead and is only on while playing (not paused, muted or scrubbing).
+		audio_.update(signal, playback_.position,
+			{ .listen = listen_, .speed = playback_.speed, .loop = playback_.loop, .volume = volume_ },
+			sound_ && playback_.playing && !scrubbing);
 
 		ImGui::End();
 	}
@@ -264,6 +273,12 @@ private:
 		playback_.position = 0.0f;
 		view_seconds_ = signals_[index].default_view_seconds;
 		peak_ = signals_[index].peak(); // one pass now, instead of every frame
+
+		audio_.stop(); // restarts from the new playhead on the next update
+
+		// Keep the listen mode valid for the new signal (real signals only have "Signal").
+		const auto options = sig::audio::listen_options(signals_[index].layout);
+		if (!std::ranges::contains(options, listen_)) listen_ = options.front();
 	}
 
 	void set_status(std::string text, bool is_error) {
@@ -435,6 +450,36 @@ private:
 		ImGui::SliderFloat("Speed", &playback_.speed, 0.05f, 4.0f, "%.2fx", ImGuiSliderFlags_Logarithmic);
 	}
 
+	void draw_audio_controls(const sig::Signal& signal) {
+		const float unit = ImGui::GetFontSize();
+
+		ImGui::BeginDisabled(!audio_.available());
+		ImGui::Checkbox("Sound", &sound_);
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(unit * 8.0f);
+		ImGui::SliderFloat("Volume", &volume_, 0.0f, 1.0f, "%.2f");
+		ImGui::EndDisabled();
+
+		if (!audio_.available()) {
+			ImGui::SameLine();
+			ImGui::TextDisabled("(no audio device)");
+			return;
+		}
+
+		// I/Q signals have no single "sound": pick what to listen to.
+		const auto options = sig::audio::listen_options(signal.layout);
+		if (options.size() > 1) {
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(unit * 12.0f);
+			if (ImGui::BeginCombo("Listen to", std::string(sig::audio::name(listen_)).c_str())) {
+				for (const sig::audio::Listen option : options) {
+					if (ImGui::Selectable(std::string(sig::audio::name(option)).c_str(), option == listen_)) listen_ = option;
+				}
+				ImGui::EndCombo();
+			}
+		}
+	}
+
 	// Whole signal at a glance. Returns true while the user drags in it.
 	bool draw_overview(const sig::Signal& signal) {
 		const float  duration = signal.duration();
@@ -528,6 +573,11 @@ private:
 	Playback                 playback_;
 	float                    view_seconds_ = 0.02f;
 	float                    gain_ = 1.0f;
+
+	AudioOutput        audio_;
+	bool               sound_ = true;
+	float              volume_ = 0.25f;
+	sig::audio::Listen listen_ = sig::audio::Listen::Signal;
 
 	FileBrowser  browser_;
 	Pending      pending_ = Pending::None;

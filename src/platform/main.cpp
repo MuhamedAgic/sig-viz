@@ -14,7 +14,8 @@ int main(void) {
 #endif
 
 	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-	InitWindow(1500, 1000, "window name");
+	InitWindow(1500, 1000, "Signal Analyzer");
+	InitAudioDevice(); // needed for the signal viewer's sound; if there is no sound card the viewer just stays silent
 	SetExitKey(KEY_NULL); // Disable Esc from closing window
 	// SetTargetFPS(240);
 
@@ -32,35 +33,38 @@ int main(void) {
 	io.FontGlobalScale = 2;
 #pragma endregion
 
-	SignalViewer signal_viewer; // generates the example signals once, up front
+	{ // scope: the viewer owns an audio stream, so it must be destroyed before CloseAudioDevice()
+		SignalViewer signal_viewer; // generates the example signals once, up front
 
-	while (!WindowShouldClose()) {
-		BeginDrawing();
-		ClearBackground(BLACK);
+		while (!WindowShouldClose()) {
+			BeginDrawing();
+			ClearBackground(BLACK);
 
 #pragma region imgui
-		rlImGuiBegin();
+			rlImGuiBegin();
 
-		//docking stuff
-		ImGui::PushStyleColor(ImGuiCol_WindowBg, {});
-		ImGui::PushStyleColor(ImGuiCol_DockingEmptyBg, {});
-		ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
-		ImGui::PopStyleColor(2);
+			//docking stuff
+			ImGui::PushStyleColor(ImGuiCol_WindowBg, {});
+			ImGui::PushStyleColor(ImGuiCol_DockingEmptyBg, {});
+			ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+			ImGui::PopStyleColor(2);
 
-		signal_viewer.draw();
+			signal_viewer.draw();
 
-		if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
+			if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
 
 #pragma endregion
 
 #pragma region imgui
-		rlImGuiEnd();
+			rlImGuiEnd();
 
 #pragma endregion
 
-		EndDrawing();
+			EndDrawing();
+		}
 	}
 
+	CloseAudioDevice();
 	CloseWindow();
 
 #pragma region imgui
