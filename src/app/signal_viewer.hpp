@@ -1,38 +1,31 @@
 #pragma once
 
-#include <cstddef>
 #include <filesystem>
 #include <string>
-#include <vector>
 
 #include "audio_output.hpp"
 #include "file_browser.hpp"
-#include "core/peak_index.hpp"
-#include "core/signal.hpp"
+#include "ui.hpp"
+#include "waveform.hpp"
+#include "workspace.hpp"
 #include "core/signal_audio.hpp"
 #include "core/signal_io.hpp"
 
-// The main window: pick, load or save a signal, look at it and listen to it.
+// The main window: pick, load or save a signal, look at it, listen to it and mark parts of it.
+//
+// Mouse, on the overview and the scope:
+//   drag               scrub (moves the playhead)
+//   shift + drag       select a time range (analysed by the other windows, looped by playback)
+//   right-click        place cursor A, then B (shows the time between them)
+//   wheel (scope)      zoom
 class SignalViewer {
 public:
-	SignalViewer();
+	static constexpr const char* title = "Signal Viewer";
+	bool open = true;
 
-	// Call once per frame, between rlImGuiBegin() and rlImGuiEnd().
-	void draw();
+	void draw(Workspace& ws);
 
 private:
-	struct Playback {
-		float position = 0.0f; // seconds
-		float speed = 1.0f;
-		bool  playing = false;
-		bool  loop = true;
-		bool  scrubbing = false;
-
-		void advance(float dt, float duration);
-		void toggle(float duration);
-	};
-
-	// What the scope shows.
 	struct View {
 		float seconds = 0.02f;
 		float gain = 1.0f;
@@ -57,33 +50,29 @@ private:
 		float                 sample_rate = 1'000'000.0f;
 	};
 
-	enum class Pending { None, Load, Save }; // what the file browser is open for
+	enum class Pending { None, Load, Save, SaveSelection }; // what the file browser is open for
+	enum class Drag { Scrub, Select };                       // what a left-drag on a plot does
 
-	[[nodiscard]] const sig::Signal& current() const { return signals_[selected_]; }
-	void select(std::size_t index);
+	void on_signal_changed(const Workspace& ws);
 
-	// ---- toolbar and files (signal_viewer.cpp) ----
-	void draw_toolbar();
-	void draw_file_dialogs();
-	void draw_import_dialog();
-	void begin_load(const std::filesystem::path& path);
-	void load_file(const std::filesystem::path& path, const sig::io::LoadOptions& options);
-	void save_to(std::filesystem::path path);
-	[[nodiscard]] std::string suggested_file_name() const;
+	// ---- toolbar and files ----
+	void draw_toolbar(Workspace& ws);
+	void draw_file_dialogs(Workspace& ws);
+	void draw_import_dialog(Workspace& ws);
+	void begin_load(Workspace& ws, const std::filesystem::path& path);
+	void load_file(Workspace& ws, const std::filesystem::path& path, const sig::io::LoadOptions& options);
+	void save_to(const Workspace& ws, std::filesystem::path path, bool selection_only);
 
-	// ---- playback and plots ----
-	void draw_transport(float duration);
-	void draw_sound_controls(const sig::Signal& signal);
-	bool draw_overview(const sig::Signal& signal); // these two return true while being dragged
-	bool draw_scope(const sig::Signal& signal);
+	// ---- playback, marks and plots ----
+	void draw_transport(Workspace& ws);
+	void draw_sound_controls(const Workspace& ws);
+	void draw_marks(Workspace& ws);
+	bool draw_overview(Workspace& ws); // these return true while scrubbing
+	bool draw_scope(Workspace& ws);
+	bool handle_mouse(Workspace& ws, const ui::Area& area, const waveform::Canvas& canvas, bool grab);
+	void draw_marks_on(ImDrawList& dl, const waveform::Canvas& canvas, const Workspace& ws) const;
 
-	std::vector<sig::Signal>    signals_;
-	std::size_t                 example_count_; // signals_[0, example_count_) are built in, the rest came from files
-	std::size_t                 selected_ = 0;
-	std::vector<sig::PeakIndex> peaks_;         // one per channel of the selected signal; rebuilt by select()
-	float                       peak_ = 0.0f;   // largest |sample| of the selected signal
-
-	Playback    playback_;
+	TrackPtr    shown_; // the signal shown last frame, to notice when another window switched it
 	View        view_;
 	Sound       sound_;
 	AudioOutput audio_;
@@ -92,4 +81,8 @@ private:
 	Pending      pending_ = Pending::None;
 	ImportDialog import_;
 	Status       status_;
+
+	Drag   drag_ = Drag::Scrub;
+	double select_anchor_ = 0.0; // where a shift-drag started (seconds)
+	int    next_cursor_ = 0;     // which cursor the next right-click places
 };

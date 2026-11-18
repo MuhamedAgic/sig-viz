@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <numbers>
 #include <span>
 #include <string_view>
@@ -51,6 +52,9 @@ namespace sig::audio {
 		Listen listen = Listen::Signal;
 		double speed = 1.0;
 		bool   loop = true;
+		// With loop on, playback jumps from loop_end back to loop_begin (seconds). Defaults: the whole signal.
+		double loop_begin = 0.0;
+		double loop_end = std::numeric_limits<double>::infinity();
 	};
 
 	class Renderer {
@@ -75,11 +79,15 @@ namespace sig::audio {
 			const Listen listen = effective_listen(signal, params.listen);
 			const double step = signal.sample_rate * params.speed / out_rate; // source samples per output sample
 
+			// The looped part [lo, hi), in source samples.
+			const auto lo = static_cast<std::int64_t>(std::clamp(params.loop_begin * signal.sample_rate, 0.0, static_cast<double>(frames - 1)));
+			const auto hi = static_cast<std::int64_t>(std::clamp(params.loop_end * signal.sample_rate, static_cast<double>(lo + 1), static_cast<double>(frames)));
+
 			// Value of the (possibly demodulated) signal at source index i; wraps when looping.
 			const auto value_at = [&](std::int64_t i) -> float {
-				if (params.loop) i = ((i % frames) + frames) % frames;
-				else if (i < 0 || i >= frames) return 0.0f;
-				const std::int64_t prev = i > 0 ? i - 1 : (params.loop ? frames - 1 : 0);
+				if (params.loop && i >= hi) i = lo + (i - lo) % (hi - lo);
+				if (i < 0 || i >= frames) return 0.0f;
+				const std::int64_t prev = i > 0 ? i - 1 : 0;
 				return sample(signal, listen, static_cast<std::size_t>(i), static_cast<std::size_t>(prev));
 				};
 
@@ -109,7 +117,8 @@ namespace sig::audio {
 				o = std::clamp(v, -1.0f, 1.0f);
 
 				cursor_ += step;
-				if (params.loop && cursor_ >= static_cast<double>(frames)) cursor_ = std::fmod(cursor_, static_cast<double>(frames));
+				if (params.loop && cursor_ >= static_cast<double>(hi))
+					cursor_ = static_cast<double>(lo) + std::fmod(cursor_ - static_cast<double>(lo), static_cast<double>(hi - lo));
 			}
 		}
 

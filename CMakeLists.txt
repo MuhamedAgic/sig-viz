@@ -23,6 +23,8 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build raylib as a static library" FORCE)
 add_subdirectory(thirdparty/raylib-5.0)    # window, OpenGL context, input, audio device
 add_subdirectory(thirdparty/imgui-docking) # the UI
 add_subdirectory(thirdparty/rlImgui)       # renders ImGui through raylib
+add_subdirectory(thirdparty/implot)        # plots: spectrum, spectrogram axes, constellation, eye diagram
+add_subdirectory(thirdparty/pocketfft)     # fast Fourier transforms
 
 
 # ---- the app ---------------------------------------------------------------------------------------
@@ -32,7 +34,7 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.hpp)
 
 add_executable(sig-viz ${SOURCES})
 target_include_directories(sig-viz PRIVATE src)
-target_link_libraries(sig-viz PRIVATE raylib_static imgui rlimgui)
+target_link_libraries(sig-viz PRIVATE raylib_static imgui rlimgui implot pocketfft)
 target_compile_definitions(sig-viz PRIVATE PRODUCTION_BUILD=$<BOOL:${PRODUCTION_BUILD}>)
 
 # Warnings for our own code only; the libraries are not ours to fix.

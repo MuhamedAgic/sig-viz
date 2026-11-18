@@ -1,19 +1,15 @@
 #include "waveform.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstddef>
 #include <format>
 #include <string>
 
+#include "core/signal.hpp"
+
 namespace waveform {
 	namespace {
-
-		constexpr std::array<ImU32, 2> channel_colors{
-			IM_COL32(80, 200, 255, 255), // real / I
-			IM_COL32(255, 150, 60, 255), // Q
-		};
 
 		// Rounds to 1, 2, 5 x 10^n so grid labels look sensible at any zoom.
 		[[nodiscard]] double nice_step(double raw) {
@@ -26,38 +22,6 @@ namespace waveform {
 			if (step < 1e-3) return std::format("{:.4g}us", t * 1e6);
 			if (step < 1.0)  return std::format("{:.4g}ms", t * 1e3);
 			return std::format("{:.4g}s", t);
-		}
-
-		void draw_grid(ImDrawList& dl, const Canvas& c, bool time_labels) {
-			constexpr ImU32 grid_col = IM_COL32(255, 255, 255, 28);
-			constexpr ImU32 axis_col = IM_COL32(255, 255, 255, 80);
-			constexpr ImU32 text_col = IM_COL32(255, 255, 255, 130);
-
-			for (const float level : { -1.0f, -0.5f, 0.0f, 0.5f, 1.0f }) {
-				const float y = c.y_at(level);
-				dl.AddLine({ c.min.x, y }, { c.max.x, y }, level == 0.0f ? axis_col : grid_col);
-			}
-
-			const double step = nice_step((c.t_end - c.t_begin) / 6.0);
-			for (double k = std::ceil(c.t_begin / step); k * step < c.t_end; k += 1.0) {
-				const double t = k * step + 0.0; // "+ 0.0" turns -0.0 into 0.0
-				const float  x = c.x_at(t);
-				dl.AddLine({ x, c.min.y }, { x, c.max.y }, grid_col);
-
-				if (time_labels) {
-					const std::string label = format_time(t, step);
-					dl.AddText({ x + 4.0f, c.max.y - ImGui::GetTextLineHeight() - 2.0f }, text_col, label.c_str());
-				}
-			}
-		}
-
-		// Darkens the parts of the canvas that lie before 0 s or after the signal's end.
-		void shade_outside(ImDrawList& dl, const Canvas& c, double duration) {
-			constexpr ImU32 shade = IM_COL32(0, 0, 0, 110);
-			const float x_begin = std::clamp(c.x_at(0.0), c.min.x, c.max.x);
-			const float x_end = std::clamp(c.x_at(duration), c.min.x, c.max.x);
-			dl.AddRectFilled(c.min, { x_begin, c.max.y }, shade);
-			dl.AddRectFilled({ x_end, c.min.y }, c.max, shade);
 		}
 
 		void draw_trace(ImDrawList& dl, const Canvas& c, const sig::PeakIndex& peaks, double rate, ImU32 color) {
@@ -93,37 +57,90 @@ namespace waveform {
 			}
 		}
 
-		void draw_legend(ImDrawList& dl, const Canvas& c, sig::Layout layout, std::size_t channels) {
-			if (layout != sig::Layout::IQ) return;
-
-			float x = c.min.x + 6.0f;
-			for (std::size_t ch = 0; ch < channels; ++ch) {
-				const std::string label{ sig::channel_label(layout, ch) };
-				dl.AddText({ x, c.min.y + 4.0f }, channel_colors[ch % channel_colors.size()], label.c_str());
-				x += ImGui::CalcTextSize(label.c_str()).x + 8.0f;
-			}
-		}
-
 	} // namespace
 
-	void draw_signal(ImDrawList& dl, const Canvas& canvas, const sig::Signal& signal,
-		std::span<const sig::PeakIndex> peaks, bool time_labels) {
-		dl.AddRectFilled(canvas.min, canvas.max, IM_COL32(18, 20, 26, 255));
-		shade_outside(dl, canvas, signal.duration());
-		draw_grid(dl, canvas, time_labels);
+	void draw_background(ImDrawList& dl, const Canvas& c, double duration, bool time_labels) {
+		constexpr ImU32 grid_col = IM_COL32(255, 255, 255, 28);
+		constexpr ImU32 axis_col = IM_COL32(255, 255, 255, 80);
+		constexpr ImU32 text_col = IM_COL32(255, 255, 255, 130);
+		constexpr ImU32 shade = IM_COL32(0, 0, 0, 110);
 
+		dl.AddRectFilled(c.min, c.max, IM_COL32(18, 20, 26, 255));
+
+		// Darken what lies before 0 s or after the end.
+		const float x_begin = std::clamp(c.x_at(0.0), c.min.x, c.max.x);
+		const float x_end = std::clamp(c.x_at(duration), c.min.x, c.max.x);
+		dl.AddRectFilled(c.min, { x_begin, c.max.y }, shade);
+		dl.AddRectFilled({ x_end, c.min.y }, c.max, shade);
+
+		for (const float level : { -1.0f, -0.5f, 0.0f, 0.5f, 1.0f }) {
+			const float y = c.y_at(level);
+			if (y < c.min.y || y > c.max.y) continue;
+			dl.AddLine({ c.min.x, y }, { c.max.x, y }, level == 0.0f ? axis_col : grid_col);
+		}
+
+		const double step = nice_step((c.t_end - c.t_begin) / 6.0);
+		for (double k = std::ceil(c.t_begin / step); k * step < c.t_end; k += 1.0) {
+			const double t = k * step + 0.0; // "+ 0.0" turns -0.0 into 0.0
+			const float  x = c.x_at(t);
+			dl.AddLine({ x, c.min.y }, { x, c.max.y }, grid_col);
+
+			if (time_labels) {
+				const std::string label = format_time(t, step);
+				dl.AddText({ x + 4.0f, c.max.y - ImGui::GetTextLineHeight() - 2.0f }, text_col, label.c_str());
+			}
+		}
+	}
+
+	void draw_traces(ImDrawList& dl, const Canvas& canvas, const Track& track, const Colors& colors) {
 		dl.PushClipRect(canvas.min, canvas.max, true);
+		const auto peaks = track.peaks();
 		for (std::size_t ch = 0; ch < peaks.size(); ++ch)
-			draw_trace(dl, canvas, peaks[ch], signal.sample_rate, channel_colors[ch % channel_colors.size()]);
+			draw_trace(dl, canvas, peaks[ch], track.signal().sample_rate, colors[ch % colors.size()]);
 		dl.PopClipRect();
+	}
 
-		draw_legend(dl, canvas, signal.layout, peaks.size());
+	void draw_track(ImDrawList& dl, const Canvas& canvas, const Track& track, bool time_labels) {
+		const sig::Signal& signal = track.signal();
+		draw_background(dl, canvas, signal.duration(), time_labels);
+		draw_traces(dl, canvas, track, colors_a);
+
+		if (signal.is_iq()) {
+			draw_label(dl, canvas, 0, "I", colors_a[0]);
+			dl.AddText({ canvas.min.x + 6.0f + ImGui::CalcTextSize("I ").x, canvas.min.y + 4.0f }, colors_a[1], "Q");
+		}
+		draw_border(dl, canvas);
+	}
+
+	void draw_label(ImDrawList& dl, const Canvas& canvas, int line, const char* text, ImU32 color) {
+		const float y = canvas.min.y + 4.0f + static_cast<float>(line) * ImGui::GetTextLineHeight();
+		dl.AddText({ canvas.min.x + 6.0f, y }, color, text);
+	}
+
+	void draw_border(ImDrawList& dl, const Canvas& canvas) {
 		dl.AddRect(canvas.min, canvas.max, IM_COL32(255, 255, 255, 60));
 	}
 
 	void draw_playhead(ImDrawList& dl, const Canvas& canvas, double t) {
 		const float x = canvas.x_at(t);
-		dl.AddLine({ x, canvas.min.y }, { x, canvas.max.y }, IM_COL32(255, 200, 0, 255), 2.0f);
+		if (x < canvas.min.x || x > canvas.max.x) return;
+		dl.AddLine({ x, canvas.min.y }, { x, canvas.max.y }, playhead_color, 2.0f);
+	}
+
+	void draw_selection(ImDrawList& dl, const Canvas& canvas, double begin, double end) {
+		const float x0 = std::clamp(canvas.x_at(begin), canvas.min.x, canvas.max.x);
+		const float x1 = std::clamp(canvas.x_at(end), canvas.min.x, canvas.max.x);
+		if (x1 <= x0) return;
+		dl.AddRectFilled({ x0, canvas.min.y }, { x1, canvas.max.y }, IM_COL32(120, 160, 255, 45));
+		dl.AddLine({ x0, canvas.min.y }, { x0, canvas.max.y }, IM_COL32(120, 160, 255, 160));
+		dl.AddLine({ x1, canvas.min.y }, { x1, canvas.max.y }, IM_COL32(120, 160, 255, 160));
+	}
+
+	void draw_cursor(ImDrawList& dl, const Canvas& canvas, double t, const char* label) {
+		const float x = canvas.x_at(t);
+		if (x < canvas.min.x || x > canvas.max.x) return;
+		dl.AddLine({ x, canvas.min.y }, { x, canvas.max.y }, cursor_color, 1.5f);
+		dl.AddText({ x + 3.0f, canvas.min.y + 2.0f }, cursor_color, label);
 	}
 
 } // namespace waveform

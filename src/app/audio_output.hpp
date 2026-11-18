@@ -10,6 +10,7 @@
 //
 // Requires InitAudioDevice() before construction and CloseAudioDevice() after destruction.
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -74,7 +75,8 @@ private:
 	// of audio, which is more source time at higher speeds), so only react to bigger differences.
 	[[nodiscard]] bool out_of_sync(const sig::Signal& signal, double playhead, const sig::audio::Params& params) const {
 		double error = renderer_.cursor_seconds(signal) - playhead;
-		if (params.loop) error = std::remainder(error, static_cast<double>(signal.duration())); // shortest way round
+		const double loop_length = std::min(params.loop_end, static_cast<double>(signal.duration())) - std::max(params.loop_begin, 0.0);
+		if (params.loop && loop_length > 0.0) error = std::remainder(error, loop_length); // shortest way round
 		return std::abs(error) > 0.1 + 0.15 * params.speed;
 	}
 

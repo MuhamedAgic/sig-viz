@@ -39,6 +39,13 @@ namespace sig {
 
 		[[nodiscard]] std::size_t frames() const { return channels.empty() ? 0 : channels.front().size(); }
 		[[nodiscard]] float duration() const { return static_cast<float>(frames()) / sample_rate; }
+		[[nodiscard]] bool  is_iq() const { return layout == Layout::IQ; }
+
+		// Sample i as a complex number: (x, 0) for a real signal, (I, Q) for an I/Q one.
+		// Lets algorithms treat both kinds the same way.
+		[[nodiscard]] std::complex<float> complex_at(std::size_t i) const {
+			return { channels[0][i], is_iq() ? channels[1][i] : 0.0f };
+		}
 	};
 
 	// A formula fn(t) giving the sample at time t (seconds): either a real value or a complex
