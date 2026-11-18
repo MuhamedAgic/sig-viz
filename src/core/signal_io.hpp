@@ -33,7 +33,7 @@
 #include <utility>
 #include <vector>
 
-#include "signal_data.hpp"
+#include "signal.hpp"
 
 namespace sig::io {
 

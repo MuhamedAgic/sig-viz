@@ -23,7 +23,7 @@
 #include <string_view>
 #include <utility>
 
-#include "signal_data.hpp"
+#include "signal.hpp"
 
 namespace sig::audio {
 
