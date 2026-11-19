@@ -8,6 +8,7 @@
 
 #include <imgui.h>
 
+#include "tips.hpp"
 #include "core/transforms.hpp"
 #include "core/units.hpp"
 
@@ -293,6 +294,7 @@ void SignalViewer::draw_sound_controls(const Workspace& ws) {
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(ui::em(12.0f));
 	ui::enum_combo("Listen to", sound_.listen, options);
+	ui::help(tips::listen);
 }
 
 // The selection and cursor readouts, with buttons to clear them.

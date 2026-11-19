@@ -8,6 +8,7 @@
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
+#include "tips.hpp"
 #include "ui.hpp"
 
 namespace gen = sig::generator;
@@ -26,8 +27,7 @@ void GeneratorWindow::draw(Workspace& ws) {
 	if (ui::enum_combo("Source", s.source, gen::all_sources) && s.source == gen::Source::Digital)
 		s.frequency = 0.0f; // start at baseband, which the Digital window decodes directly
 	ImGui::Checkbox("I/Q (complex)", &s.iq);
-	ImGui::SameLine();
-	ImGui::TextDisabled(s.iq ? "(negative frequencies allowed)" : "(real)");
+	ui::help(tips::iq);
 
 	ImGui::SeparatorText("Timing");
 	ImGui::InputFloat("Sample rate (Hz)", &s.sample_rate, 0.0f, 0.0f, "%.0f");
@@ -41,6 +41,7 @@ void GeneratorWindow::draw(Workspace& ws) {
 		ui::enum_combo("Waveform", s.waveform, gen::all_waveforms);
 		ImGui::SliderFloat("Frequency (Hz)", &s.frequency, s.iq ? -nyquist : 0.0f, nyquist, "%.1f Hz");
 		ui::enum_combo("Modulation", s.modulation, gen::all_modulations);
+		ui::help(tips::modulation);
 		switch (s.modulation) {
 		case gen::Modulation::None:
 			break;
@@ -66,8 +67,11 @@ void GeneratorWindow::draw(Workspace& ws) {
 	case gen::Source::Digital: {
 		ImGui::SeparatorText("Digital data");
 		ui::enum_combo("Modulation", s.scheme, sig::digital::all_schemes);
+		ui::help(tips::scheme);
 		ImGui::InputFloat("Symbol rate (baud)", &s.symbol_rate, 0.0f, 0.0f, "%.1f");
+		ui::help(tips::symbol_rate);
 		ImGui::SliderFloat("Carrier (Hz)", &s.frequency, s.iq ? -nyquist : 0.0f, nyquist, "%.1f Hz");
+		ui::help(tips::carrier);
 		ImGui::SetNextItemWidth(-FLT_MIN);
 		ImGui::InputText("##bits", &s.bits);
 		ui::hint("Bits to send, repeated. Carrier 0 Hz = baseband, which the Digital window can decode directly.");
@@ -79,6 +83,7 @@ void GeneratorWindow::draw(Workspace& ws) {
 	ImGui::Checkbox("Add noise", &s.add_noise);
 	if (s.add_noise) {
 		ImGui::SliderFloat("SNR (dB)", &s.snr_db, -20.0f, 80.0f, "%.1f dB");
+		ui::help(tips::noise_snr);
 		int seed = static_cast<int>(s.seed);
 		if (ImGui::InputInt("Seed", &seed)) s.seed = static_cast<unsigned>(seed);
 	}

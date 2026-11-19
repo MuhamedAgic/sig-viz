@@ -11,7 +11,7 @@ void App::draw() {
 		const ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspace);
 		if (reset_layout_ || node == nullptr || node->IsLeafNode()) {
 			build_default_layout(dockspace);
-			focus_viewer_in_ = 2; // the windows get docked during the next frame; then pick the viewer's tab
+			pick_tabs_in_ = 2; // the windows get docked during the next frame; then pick the tabs to show
 		}
 		check_layout_ = reset_layout_ = false;
 	}
@@ -24,8 +24,12 @@ void App::draw() {
 	transform_.draw(ws_);
 	generator_.draw(ws_);
 	digital_.draw(ws_);
+	guide_.draw(ws_);
 
-	if (focus_viewer_in_ > 0 && --focus_viewer_in_ == 0) ImGui::SetWindowFocus(SignalViewer::title);
+	if (pick_tabs_in_ > 0 && --pick_tabs_in_ == 0) {
+		ImGui::SetWindowFocus(GuideWindow::title);
+		ImGui::SetWindowFocus(SignalViewer::title);
+	}
 
 	if (show_imgui_demo_) ImGui::ShowDemoWindow(&show_imgui_demo_);
 	if (show_implot_demo_) ImPlot::ShowDemoWindow(&show_implot_demo_);
@@ -42,16 +46,21 @@ void App::draw_menu_bar() {
 		ImGui::MenuItem(TransformWindow::title, nullptr, &transform_.open);
 		ImGui::MenuItem(GeneratorWindow::title, nullptr, &generator_.open);
 		ImGui::MenuItem(DigitalWindow::title, nullptr, &digital_.open);
+		ImGui::MenuItem(GuideWindow::title, nullptr, &guide_.open);
 		ImGui::Separator();
 		if (ImGui::MenuItem("Reset layout")) {
 			viewer_.open = spectrum_.open = spectrogram_.open = compare_.open = true;
-			transform_.open = generator_.open = digital_.open = true;
+			transform_.open = generator_.open = digital_.open = guide_.open = true;
 			reset_layout_ = true;
 		}
 		ImGui::EndMenu();
 	}
 
 	if (ImGui::BeginMenu("Help")) {
+		if (ImGui::MenuItem("Guide: what is all this?")) {
+			guide_.open = true;
+			ImGui::SetWindowFocus(GuideWindow::title);
+		}
 		ImGui::SeparatorText("Viewer");
 		ImGui::TextUnformatted("Drag            move the playhead");
 		ImGui::TextUnformatted("Shift + drag    select a range");
@@ -72,8 +81,8 @@ void App::draw_menu_bar() {
 	ImGui::EndMainMenuBar();
 }
 
-// Generator and Transform on the left, the viewer (with Compare and Digital as tabs) in the middle,
-// Spectrum above Spectrogram on the right.
+// Guide, Generator and Transform on the left, the viewer (with Compare and Digital as tabs) in the
+// middle, Spectrum above Spectrogram on the right.
 void App::build_default_layout(ImGuiID dockspace) {
 	ImGui::DockBuilderRemoveNode(dockspace);
 	ImGui::DockBuilderAddNode(dockspace, ImGuiDockNodeFlags_DockSpace);
@@ -86,6 +95,7 @@ void App::build_default_layout(ImGuiID dockspace) {
 
 	ImGui::DockBuilderDockWindow(TransformWindow::title, left);
 	ImGui::DockBuilderDockWindow(GeneratorWindow::title, left);
+	ImGui::DockBuilderDockWindow(GuideWindow::title, left);
 	ImGui::DockBuilderDockWindow(CompareWindow::title, centre);
 	ImGui::DockBuilderDockWindow(DigitalWindow::title, centre);
 	ImGui::DockBuilderDockWindow(SignalViewer::title, centre);

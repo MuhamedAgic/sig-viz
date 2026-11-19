@@ -7,6 +7,7 @@
 #include <imgui.h>
 
 #include "plots.hpp"
+#include "tips.hpp"
 #include "ui.hpp"
 #include "core/units.hpp"
 
@@ -34,10 +35,11 @@ void SpectrogramWindow::draw(Workspace& ws) {
 			if (ImGui::Selectable(std::to_string(1 << k).c_str(), k == analysis_settings_.size_log2)) analysis_settings_.size_log2 = k;
 		ImGui::EndCombo();
 	}
+	ui::help(tips::spectrogram_size);
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(ui::em(8.0f));
 	ui::enum_combo("Window", analysis_settings_.window, sig::fft::all_windows);
-	ImGui::SameLine();
+	ui::help(tips::window);
 	ImGui::SetNextItemWidth(ui::em(6.0f));
 	if (ImGui::BeginCombo("Colours", ImPlot::GetColormapName(color_settings_.colormap))) {
 		for (const ImPlotColormap map : colormaps)
@@ -47,7 +49,8 @@ void SpectrogramWindow::draw(Workspace& ws) {
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(ui::em(10.0f));
 	ImGui::DragFloatRange2("dB", &color_settings_.floor_db, &color_settings_.ceiling_db, 0.5f, -200.0f, 20.0f, "%.0f", "%.0f");
-	ui::hint("Small sizes show fast changes sharply, large sizes separate close frequencies.");
+	ui::help(tips::db_range);
+	ui::hint("Time runs to the right, frequency goes up, brighter = stronger. Drag the yellow line to move the playhead.");
 
 	// ---- (re)build what changed ----
 	analysis_settings_.track = ws.current;

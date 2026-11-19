@@ -2,6 +2,10 @@
 
 // Fourier transforms and power spectra.
 //
+// The idea: most signals are a mix of simple waves, like a chord is a mix of notes. The Fourier
+// transform un-mixes them, like a prism splitting white light into its colours, and says how strong
+// each frequency is. The FFT (Fast Fourier Transform) is a fast way to compute it.
+//
 // pocketfft does the actual transform (any length; fastest when the length only has small prime
 // factors, like powers of 2). This file hides its API and adds the signal-analysis parts on top:
 // window functions, scaling to dBFS and averaging.
@@ -40,9 +44,10 @@ namespace sig::fft {
 	}
 
 	// ---- windows ----------------------------------------------------------------------------------
-	// An FFT assumes the block repeats forever; a window fades the block's edges so the jump where it
-	// "wraps around" does not smear energy over the whole spectrum. Wider main lobe = less smearing
-	// far away, but a blurrier peak.
+	// An FFT assumes the block repeats forever. Where the block's end meets its start there is usually
+	// a jump, and that jump smears energy over the whole spectrum ("leakage"). A window fades the block
+	// in and out, like a DJ crossfading between two records, so there is no jump.
+	// Trade-off: a window that fades more leaks less, but blurs each peak over more bins (a wider "lobe").
 
 	enum class Window { Rectangular, Hann, Blackman, FlatTop };
 	inline constexpr std::array all_windows{ Window::Rectangular, Window::Hann, Window::Blackman, Window::FlatTop };
@@ -138,6 +143,9 @@ namespace sig::fft {
 		// Average spectrum of the frames [begin, end) (Welch's method): the range is covered with
 		// half-overlapping blocks, at most `max_blocks` of them (spread out evenly when the range is long).
 		// A range shorter than one block gives a single block centred on it.
+		//
+		// Why average? Like stacking several photos of the same scene: what is really there (tones) stays,
+		// the random grain (noise) evens out, so the noise floor becomes smooth and quiet tones show up.
 		[[nodiscard]] Spectrum average(const Signal& signal, std::size_t begin, std::size_t end, std::size_t max_blocks = 64) {
 			Spectrum result{
 				.power = std::vector<float>(bins(signal)),

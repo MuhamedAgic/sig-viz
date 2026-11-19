@@ -66,6 +66,10 @@ namespace sig::transform {
 		// The analytic signal x + j * hilbert(x): the same real signal, with the negative frequencies
 		// removed. Its magnitude is the envelope and its angle the phase, which is what AM and FM
 		// demodulation need. Done in the frequency domain: zero the negative half, double the positive.
+		//
+		// In the clock-face picture (see Layout in signal.hpp): a real signal is only the floor shadow
+		// of the turning dot. This reconstructs the wall shadow too, so we know where the dot really is:
+		// how far from the centre (|z|, the envelope) and at what angle (arg z, the phase).
 		[[nodiscard]] inline std::vector<Complex> analytic(const Signal& real) {
 			std::vector<Complex> z = to_complex(real);
 			const std::size_t n = z.size();
@@ -166,6 +170,11 @@ namespace sig::transform {
 
 	// FIR filter coefficients (windowed sinc). Always an odd count, symmetric around the middle tap,
 	// so filtering delays nothing.
+	//
+	// A filter is a sieve for frequencies. This kind (FIR) makes every output sample a weighted average
+	// of its neighbours; the weights ("taps") decide what passes. The simplest example is a plain moving
+	// average: averaging smooths away fast wiggles (high frequencies) and keeps slow changes, so it is a
+	// low-pass filter. The weights below are the "ideal" low-pass shape (a sinc), shortened to `taps` values.
 	[[nodiscard]] inline std::vector<float> design_filter(const FilterSpec& spec, float sample_rate) {
 		const int taps = std::max(spec.taps, 3) | 1;
 		const int middle = taps / 2;
@@ -237,6 +246,9 @@ namespace sig::transform {
 
 	// Moves the whole spectrum up by `hz` (down if negative) by multiplying with e^(j 2 pi hz t).
 	// The result is always I/Q: a shifted real signal is no longer symmetric around 0 Hz.
+	//
+	// Like turning a radio's tuning knob: every frequency moves by the same amount. Multiplying by
+	// e^(j 2 pi hz t), a dot circling at `hz` turns per second, adds that rotation to everything.
 	[[nodiscard]] inline Result shift_frequency(const Signal& signal, double hz) {
 		std::vector<Complex> z = detail::to_complex(signal);
 		for (std::size_t n = 0; n < z.size(); ++n) {
@@ -248,6 +260,11 @@ namespace sig::transform {
 
 	// Converts to another sample rate with windowed-sinc interpolation. When the rate goes down,
 	// everything above the new half-rate is filtered out first (otherwise it would fold back as aliasing).
+	//
+	// Aliasing is the wagon wheel in a film that seems to turn backwards: the camera samples too slowly
+	// for the spokes, so a fast movement looks like a slow one. Once it happened, it cannot be undone.
+	// Interpolation is "connect the dots" with the smoothest curve that has no frequencies the new rate
+	// cannot hold: each output sample is a weighted sum of nearby input samples (weights from a sinc).
 	[[nodiscard]] inline Result resample(const Signal& signal, float new_rate) {
 		if (!(new_rate > 0.0f)) return std::unexpected("The new sample rate must be greater than 0");
 
@@ -308,6 +325,8 @@ namespace sig::transform {
 	}
 
 	// Envelope |I + jQ| without its average. Real signals are made I/Q first. Normalised.
+	// AM puts the message in how strong the carrier is (like a dimmer), so the message is the outline
+	// (envelope) of the wave: the distance of the clock-face dot from the centre.
 	[[nodiscard]] inline Result am_demodulate(const Signal& signal) {
 		const std::vector<Complex> z = detail::as_iq(signal);
 		std::vector<float> out(z.size());
@@ -319,6 +338,8 @@ namespace sig::transform {
 
 	// Instantaneous frequency: the phase step from one sample to the next. Real signals are made I/Q
 	// first. Normalised, so the output shows the shape of the frequency changes, not their size.
+	// FM puts the message in how fast the carrier vibrates (like a siren), so the message is how far the
+	// clock-face dot turned since the previous sample: z[n] * conj(z[n-1]) has exactly that angle.
 	[[nodiscard]] inline Result fm_demodulate(const Signal& signal) {
 		const std::vector<Complex> z = detail::as_iq(signal);
 		std::vector<float> out(z.size());

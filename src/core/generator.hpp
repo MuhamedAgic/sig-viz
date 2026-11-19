@@ -26,6 +26,10 @@ namespace sig::generator {
 
 	enum class Source { Tone, Noise, Digital };
 	enum class Waveform { Sine, Square, Triangle, Sawtooth };
+	// How a tone carries a message:
+	//   AM:    the message turns the tone's strength up and down, like a dimmer on a lamp.
+	//   FM:    the message pushes its frequency up and down, like a siren.
+	//   Sweep: the frequency glides from one value to another (a "chirp", like a bird or a radar pulse).
 	enum class Modulation { None, AM, FM, Sweep };
 
 	inline constexpr std::array all_sources{ Source::Tone, Source::Noise, Source::Digital };

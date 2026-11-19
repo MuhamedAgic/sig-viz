@@ -13,8 +13,10 @@ Analyse, generate, transform and compare signals: audio and SDR-style I/Q.
 | **Transform**   | Gain, normalise, remove DC, add noise, filters (with response plot), frequency shift, resample, real <-> I/Q, AM/FM demodulation, trim, combine. Results become new signals, so steps can be chained and compared. |
 | **Generator**   | Tones (AM, FM, sweep), noise and digital data (OOK, BPSK, QPSK), real or I/Q, with optional noise. |
 | **Digital**     | Constellation, eye diagram and decoded bits of a baseband digital signal. |
+| **Guide**       | New to signals? 13 short topics (sampling, FFT, decibels, I/Q, modulation, ...), each explained with an everyday comparison. "Show me" loads a fitting signal and says where to look. |
 
-The **Windows** menu reopens closed windows and resets the layout; **Help** lists the mouse controls.
+Hover any **(?)**, or a measurement's name, for a quick explanation. The **Windows** menu reopens closed
+windows and resets the layout; **Help** lists the mouse controls.
 
 ## Code
 
@@ -35,8 +37,12 @@ src/app/    ImGui / ImPlot / raylib
     app.*            menu bar, docking layout, all windows
     workspace.hpp    what the windows share: signals, playhead, selection, cursors
     library.hpp      Track = immutable signal + peak index, shared via std::shared_ptr
-    *_window.*       one class per window
+    tips.hpp         the short (?) explanations, all in one place
+    *_window.*       one class per window (guide_window.cpp holds the Guide's lessons)
 ```
+
+The core headers start each concept with a plain-language comparison before the details: the FFT as a
+prism, windows as a DJ crossfade, I/Q as the two shadows of a dot going round a clock face, ...
 
 ## Building
 

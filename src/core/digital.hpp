@@ -2,6 +2,10 @@
 
 // Digital modulation: bits <-> symbols, plus the data behind the constellation and eye diagram.
 //
+// Bits travel as symbols: short stretches of signal with a fixed level and phase, one after the other
+// at a fixed rate, like flashes of a signal lamp. The receiver looks at the signal once per symbol and
+// decides which symbol it most resembles.
+//
 // Decoding expects a baseband signal (carrier at 0 Hz) and a known symbol rate. A signal on a
 // carrier can be brought down with transform::shift_frequency first.
 
@@ -85,6 +89,9 @@ namespace sig::digital {
 
 	// The bits that the received symbols most likely carried, as '0' / '1' characters.
 	// OOK decides on magnitude: anything above half of the strongest symbol is a 1.
+	//
+	// Like scoring darts: every received symbol landed somewhere on the board (the constellation),
+	// and counts for the nearest bullseye. For BPSK / QPSK that is simply: which side of the axis is it on?
 	[[nodiscard]] inline std::string decode(Scheme scheme, std::span<const std::complex<float>> symbols) {
 		float strongest = 0.0f;
 		for (const auto& z : symbols) strongest = std::max(strongest, std::abs(z));
@@ -106,6 +113,7 @@ namespace sig::digital {
 	// Eye diagram: the signal from one symbol before to one symbol after each symbol instant in
 	// [begin, end) seconds, laid on top of each other. A wide-open "eye" in the middle means the
 	// symbols are easy to tell apart.
+	// Like a long-exposure photo of all symbols at once: noise blurs the lines and closes the eye.
 	// Returns `points` values per trace (channel 0 = real / I, 1 = Q), traces one after the other.
 	[[nodiscard]] inline std::vector<float> eye_traces(const Signal& signal, std::size_t channel, const Timing& timing,
 		double begin, double end, std::size_t max_traces, std::size_t points) {

@@ -5,6 +5,7 @@
 #include "compare_window.hpp"
 #include "digital_window.hpp"
 #include "generator_window.hpp"
+#include "guide_window.hpp"
 #include "signal_viewer.hpp"
 #include "spectrogram_window.hpp"
 #include "spectrum_window.hpp"
@@ -30,10 +31,11 @@ private:
 	TransformWindow   transform_;
 	GeneratorWindow   generator_;
 	DigitalWindow     digital_;
+	GuideWindow       guide_;
 
-	bool check_layout_ = true;  // first frame: make the default layout, unless imgui.ini has one
+	bool check_layout_ = true; // first frame: make the default layout, unless imgui.ini has one
 	bool reset_layout_ = false; // the user asked for the default layout
-	int  focus_viewer_in_ = 0;  // frames until the viewer's tab is brought to the front (after a new layout)
+	int  pick_tabs_in_ = 0;    // frames until the viewer's and guide's tabs are brought to the front (after a new layout)
 	bool show_imgui_demo_ = false;
 	bool show_implot_demo_ = false;
 };

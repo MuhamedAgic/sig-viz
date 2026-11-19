@@ -8,6 +8,7 @@
 
 #include <imgui.h>
 
+#include "tips.hpp"
 #include "core/transforms.hpp"
 #include "core/units.hpp"
 
@@ -52,6 +53,7 @@ void CompareWindow::draw_controls(Workspace& ws) {
 	ui::enum_combo("Layout", layout_, std::array{ Layout::Stacked, Layout::Overlay });
 	ImGui::SameLine();
 	ImGui::Checkbox("A - B", &show_difference_);
+	ui::help(tips::difference);
 	ImGui::SameLine();
 	ImGui::Checkbox("Follow playhead", &follow_);
 
@@ -74,6 +76,7 @@ void CompareWindow::draw_controls(Workspace& ws) {
 			message_ = std::format("Best match with B shifted by {} samples ({}).", found, sig::format_seconds(offset_));
 		}
 	}
+	ui::help(tips::auto_align);
 	ImGui::SameLine();
 	if (ImGui::Button("Reset##shift")) offset_ = 0.0;
 
@@ -97,6 +100,7 @@ void CompareWindow::draw_controls(Workspace& ws) {
 	else if (similarity_.overlap > 0) {
 		ImGui::Text("Correlation %.4f    RMS of A - B: %.1f dBFS    over %zu samples", similarity_.correlation,
 			20.0 * std::log10(std::max(similarity_.rms_difference, 1e-12)), similarity_.overlap);
+		ui::help(tips::correlation);
 		ImGui::SameLine();
 		if (difference_ && ImGui::SmallButton("Add A - B to library")) ws.add_and_select(difference_->signal());
 	}

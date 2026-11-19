@@ -10,6 +10,7 @@
 #include <implot.h>
 
 #include "plots.hpp"
+#include "tips.hpp"
 #include "ui.hpp"
 #include "core/fft.hpp"
 #include "core/units.hpp"
@@ -88,6 +89,7 @@ void TransformWindow::draw_parameters(const Workspace& ws) {
 		break;
 	case Op::AddNoise:
 		ImGui::SliderFloat("SNR (dB)", &snr_db_, -20.0f, 80.0f, "%.1f dB");
+		ui::help(tips::noise_snr);
 		ImGui::InputInt("Seed", &seed_);
 		break;
 	case Op::Filter: {
@@ -96,8 +98,7 @@ void TransformWindow::draw_parameters(const Workspace& ws) {
 		if (filter_.type != LowPass)  ImGui::SliderFloat("From (Hz)", &filter_.low_hz, 0.0f, nyquist, "%.0f Hz", ImGuiSliderFlags_Logarithmic);
 		if (filter_.type != HighPass) ImGui::SliderFloat("To (Hz)", &filter_.high_hz, 0.0f, nyquist, "%.0f Hz", ImGuiSliderFlags_Logarithmic);
 		ImGui::SliderInt("Taps", &filter_.taps, 3, 1001, "%d", ImGuiSliderFlags_Logarithmic);
-		ImGui::SameLine();
-		ImGui::TextDisabled("(more = sharper, slower)");
+		ui::help(tips::taps);
 		break;
 	}
 	case Op::ShiftFrequency:

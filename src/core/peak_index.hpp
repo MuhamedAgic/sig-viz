@@ -3,6 +3,9 @@
 // Min/max summary of one channel, so a zoomed-out view can find the extremes of millions of samples
 // without reading them all.
 //
+// Like a book with a summary per chapter: to find the most exciting moment in chapters 3 to 50, read
+// the summaries of the chapters in between, and only the actual pages at the two ragged ends.
+//
 // The samples are split into blocks of `block_size`, and the min/max of every block is stored up front
 // (about 3 % extra memory). A range query then reads only the samples at its two ragged ends plus
 // one stored pair per whole block in between, so it costs at most ~2 * block_size + range / block_size reads

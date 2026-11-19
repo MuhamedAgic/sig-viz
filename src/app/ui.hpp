@@ -76,6 +76,23 @@ namespace ui {
 		if (!text.empty()) ImGui::TextColored({ 1.0f, 0.45f, 0.45f, 1.0f }, "%s", text.c_str());
 	}
 
+	// Shows `text` in a tooltip while the previous item is hovered.
+	inline void explain(const char* text) {
+		if (ImGui::BeginItemTooltip()) {
+			ImGui::PushTextWrapPos(em(28.0f));
+			ImGui::TextUnformatted(text);
+			ImGui::PopTextWrapPos();
+			ImGui::EndTooltip();
+		}
+	}
+
+	// A greyed-out "(?)" next to the previous item, that explains it when hovered.
+	inline void help(const char* text) {
+		ImGui::SameLine();
+		ImGui::TextDisabled("(?)");
+		explain(text);
+	}
+
 	// Greyed-out text that wraps.
 	inline void hint(const char* text) {
 		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));

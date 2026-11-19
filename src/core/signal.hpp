@@ -16,9 +16,15 @@ namespace sig {
 
 	inline constexpr double tau = 2.0 * std::numbers::pi;
 
+	// Real or I/Q ("complex").
+	//
+	// Picture a dot going round a clock face. A real signal only records its shadow on the floor: the
+	// shadow moves back and forth, but you cannot tell which way the dot turns. An I/Q signal also records
+	// the shadow on the wall (Q), so the direction is known. That is why, for I/Q, +1 kHz (counter-clockwise)
+	// and -1 kHz (clockwise) are different frequencies, while a real signal's spectrum is always mirrored.
 	enum class Layout {
 		Real, // one channel
-		IQ,   // two channels: I (in-phase) and Q (quadrature)
+		IQ,   // two channels: I (in-phase, the floor shadow) and Q (quadrature, the wall shadow)
 	};
 
 	[[nodiscard]] constexpr std::string_view channel_label(Layout layout, std::size_t channel) {

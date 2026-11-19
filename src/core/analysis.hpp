@@ -1,6 +1,10 @@
 #pragma once
 
 // Measurements on signals: levels, tone quality (SNR / THD) and how well two signals line up.
+//
+// Most results are in decibels (dB), a logarithmic scale, because levels span an enormous range (a
+// whisper vs. a jet engine). For amplitudes: dB = 20 * log10(ratio), so -6 dB is about half and -20 dB a
+// tenth. For powers (amplitude squared): dB = 10 * log10(ratio). dBFS = relative to full scale (1.0).
 
 #include <algorithm>
 #include <bit>
@@ -77,6 +81,9 @@ namespace sig::analysis {
 	};
 
 	// Treats the strongest component as "the" tone and measures how clean it is.
+	//   SNR: how much the tone stands out from the noise, like one voice at a noisy party.
+	//   THD: how strong its overtones (2x, 3x, ... the frequency) are. A pure sine has none; they are
+	//        what makes a distorted guitar sound "dirty".
 	//   lobe: fft::lobe_half_width() of the window used, i.e. how many bins one tone occupies each side
 	[[nodiscard]] inline std::optional<ToneQuality> tone_quality(const fft::Spectrum& spectrum, bool is_iq, std::size_t main_lobe) {
 		const auto& p = spectrum.power;
@@ -127,6 +134,10 @@ namespace sig::analysis {
 	// How many samples B has to be delayed to line up best with A (negative: B is moved earlier),
 	// i.e. a[n] ~ b[n - lag]. Uses the cross-correlation, computed with FFTs, over the first
 	// `max_samples` of each signal.
+	//
+	// Cross-correlation is like sliding a transparency (B) over a drawing (A): for every shift, multiply
+	// what lies on top of each other and add it all up. Where the lines match, the sum is largest.
+	// Trying every shift one by one would be slow; the FFT does all of them at once.
 	[[nodiscard]] inline std::ptrdiff_t best_lag(const Signal& a, const Signal& b, std::size_t max_samples = std::size_t{ 1 } << 20) {
 		const std::size_t na = std::min(a.frames(), max_samples);
 		const std::size_t nb = std::min(b.frames(), max_samples);

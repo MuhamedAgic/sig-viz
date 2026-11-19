@@ -9,6 +9,7 @@
 #include <implot.h>
 
 #include "plots.hpp"
+#include "tips.hpp"
 #include "ui.hpp"
 #include "core/units.hpp"
 
@@ -29,18 +30,18 @@ void SpectrumWindow::draw(const Workspace& ws) {
 			if (ImGui::Selectable(std::to_string(1 << k).c_str(), k == size_log2_)) size_log2_ = k;
 		ImGui::EndCombo();
 	}
+	ui::help(tips::fft_size);
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(ui::em(8.0f));
 	ui::enum_combo("Window", window_, sig::fft::all_windows);
-	ImGui::SetItemTooltip("Hann: sharp peaks.  Blackman: good all-rounder.  Flat top: exact levels.\n"
-		"The window's leakage limits the SNR it can measure: about 55 / 70 / 90 dB.");
-	ImGui::SameLine();
+	ui::help(tips::window);
 	ImGui::SetNextItemWidth(ui::em(11.0f));
 	ui::enum_combo("Analyse", source_, std::array{ Source::Playhead, Source::Selection, Source::Whole });
 	if (!signal.is_iq()) {
 		ImGui::SameLine();
 		if (ImGui::Checkbox("Log frequency", &log_frequency_)) refit_ = true;
 	}
+	ui::help(tips::dbfs);
 
 	// ---- what to analyse ----
 	const std::size_t size = std::size_t{ 1 } << size_log2_;
@@ -132,25 +133,29 @@ void SpectrumWindow::draw_plot(const sig::Signal& signal) {
 void SpectrumWindow::draw_measurements(const sig::Signal& signal) const {
 	if (!ImGui::BeginTable("##measurements", 4, ImGuiTableFlags_SizingStretchProp)) return;
 
-	const auto row = [](const char* label_a, const std::string& value_a, const char* label_b, const std::string& value_b) {
-		ImGui::TableNextRow();
-		ImGui::TableNextColumn(); ImGui::TextDisabled("%s", label_a);
-		ImGui::TableNextColumn(); ImGui::TextUnformatted(value_a.c_str());
-		ImGui::TableNextColumn(); ImGui::TextDisabled("%s", label_b);
-		ImGui::TableNextColumn(); ImGui::TextUnformatted(value_b.c_str());
+	// One measurement: its name (hover it for an explanation) and its value. Two per row.
+	const auto cell = [](const char* name, const char* tip, const std::string& value) {
+		ImGui::TableNextColumn();
+		ImGui::TextDisabled("%s", name);
+		ui::explain(tip);
+		ImGui::TableNextColumn();
+		ImGui::TextUnformatted(value.c_str());
 	};
 	const auto dbfs = [](double amplitude) { return std::format("{:.1f} dBFS", 20.0 * std::log10(std::max(amplitude, 1e-12))); };
 
-	row("RMS", dbfs(levels_.rms), "Peak", dbfs(levels_.peak));
-	row("DC", std::format("{:.4f}", levels_.dc), "Crest factor", std::format("{:.1f} dB", levels_.crest_db()));
+	cell("RMS", tips::rms, dbfs(levels_.rms));
+	cell("Peak", tips::peak, dbfs(levels_.peak));
+	cell("DC", tips::dc, std::format("{:.4f}", levels_.dc));
+	cell("Crest factor", tips::crest, std::format("{:.1f} dB", levels_.crest_db()));
 
 	if (tone_) {
 		std::string thd = "-";
 		if (tone_->thd_db) thd = std::format("{:.1f} dB ({:.2g} %)", *tone_->thd_db, 100.0 * std::pow(10.0, *tone_->thd_db / 20.0));
-		row("Strongest", std::format("{} at {:.1f} dBFS", sig::format_hz(tone_->fundamental.hz), tone_->fundamental.db),
-			"SNR", std::format("{:.1f} dB", tone_->snr_db));
-		row("THD", thd, "Analysed", std::format("{} samples ({})", analysed_frames_,
-			sig::format_seconds(static_cast<double>(analysed_frames_) / signal.sample_rate)));
+		cell("Strongest", tips::strongest, std::format("{} at {:.1f} dBFS", sig::format_hz(tone_->fundamental.hz), tone_->fundamental.db));
+		cell("SNR", tips::snr, std::format("{:.1f} dB", tone_->snr_db));
+		cell("THD", tips::thd, thd);
+		cell("Analysed", "How much of the signal these numbers are based on.", std::format("{} samples ({})",
+			analysed_frames_, sig::format_seconds(static_cast<double>(analysed_frames_) / signal.sample_rate)));
 	}
 	ImGui::EndTable();
 }

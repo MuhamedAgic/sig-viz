@@ -9,6 +9,7 @@
 #include <implot.h>
 
 #include "plots.hpp"
+#include "tips.hpp"
 #include "ui.hpp"
 #include "core/units.hpp"
 
@@ -27,14 +28,17 @@ void DigitalWindow::draw(const Workspace& ws) {
 	// ---- settings ----
 	ImGui::SetNextItemWidth(ui::em(8.0f));
 	ui::enum_combo("Scheme", scheme_, digital::all_schemes);
+	ui::help(tips::scheme);
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(ui::em(7.0f));
 	ImGui::InputDouble("Symbol rate", &timing_.symbol_rate, 0.0, 0.0, "%.1f");
+	ui::help(tips::symbol_rate);
 	timing_.symbol_rate = std::max(timing_.symbol_rate, 0.001);
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(ui::em(8.0f));
 	float offset = static_cast<float>(timing_.offset);
 	if (ImGui::SliderFloat("Timing", &offset, 0.0f, 1.0f, "%.2f symbol")) timing_.offset = offset;
+	ui::help(tips::timing);
 	if (!ws.selection) {
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(ui::em(6.0f));
@@ -71,6 +75,7 @@ void DigitalWindow::draw(const Workspace& ws) {
 void DigitalWindow::draw_constellation(const Workspace& ws, const TimeRange& range, const std::vector<std::complex<float>>& symbols) {
 	const sig::Signal& signal = ws.signal();
 	ImGui::Checkbox("Show every sample (not only symbol instants)", &all_samples_);
+	ui::help(tips::constellation);
 
 	const ImVec2 avail = ImGui::GetContentRegionAvail();
 	const float side = std::max(std::min(avail.x, avail.y), ui::em(10.0f));
@@ -122,7 +127,10 @@ void DigitalWindow::draw_constellation(const Workspace& ws, const TimeRange& ran
 }
 
 void DigitalWindow::draw_eye(const sig::Signal& signal, const TimeRange& range) {
+	ImGui::TextDisabled("What is this? (?)");
+	ui::explain(tips::eye);
 	if (signal.is_iq()) {
+		ImGui::SameLine(0.0f, ui::em(2.0f));
 		ImGui::RadioButton("I", &eye_channel_, 0);
 		ImGui::SameLine();
 		ImGui::RadioButton("Q", &eye_channel_, 1);
