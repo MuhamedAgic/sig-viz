@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 
@@ -48,6 +49,11 @@ private:
 		std::filesystem::path path;
 		sig::io::Format       format = sig::io::Format::CF32;
 		float                 sample_rate = 1'000'000.0f;
+		double                center_hz = 0.0;
+		double                start_seconds = 0.0;
+		double                max_seconds = 0.0; // 0 = all
+		std::uintmax_t        file_bytes = 0;
+		bool                  sigmf = false;     // format and rate come from the .sigmf-meta
 	};
 
 	enum class Pending { None, Load, Save, SaveSelection }; // what the file browser is open for
@@ -59,7 +65,12 @@ private:
 	void draw_toolbar(Workspace& ws);
 	void draw_file_dialogs(Workspace& ws);
 	void draw_import_dialog(Workspace& ws);
+public:
+	// Loads a file (asks for details first if it needs them). Also used for files dropped on the window.
 	void begin_load(Workspace& ws, const std::filesystem::path& path);
+	void open_load_dialog();
+
+private:
 	void load_file(Workspace& ws, const std::filesystem::path& path, const sig::io::LoadOptions& options);
 	void save_to(const Workspace& ws, std::filesystem::path path, bool selection_only);
 
@@ -73,6 +84,7 @@ private:
 	void draw_marks_on(ImDrawList& dl, const waveform::Canvas& canvas, const Workspace& ws) const;
 
 	TrackPtr    shown_; // the signal shown last frame, to notice when another window switched it
+	TrackPtr    heard_; // what was audible last frame (the signal or ws.audition)
 	View        view_;
 	Sound       sound_;
 	AudioOutput audio_;

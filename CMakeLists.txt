@@ -34,6 +34,8 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.hpp)
 
 add_executable(sig-viz ${SOURCES})
 target_include_directories(sig-viz PRIVATE src)
+# miniaudio's declarations (raylib compiles miniaudio in; src/app/microphone.cpp records with it)
+target_include_directories(sig-viz SYSTEM PRIVATE thirdparty/raylib-5.0/src/external)
 target_link_libraries(sig-viz PRIVATE raylib_static imgui rlimgui implot pocketfft)
 target_compile_definitions(sig-viz PRIVATE PRODUCTION_BUILD=$<BOOL:${PRODUCTION_BUILD}>)
 
@@ -44,6 +46,10 @@ else()
 	target_compile_options(sig-viz PRIVATE -Wall -Wextra)
 endif()
 
+if(WIN32)
+	target_link_libraries(sig-viz PRIVATE ws2_32) # sockets, for rtl_tcp
+endif()
+
 if(PRODUCTION_BUILD AND WIN32)
 	if(MSVC)
 		target_link_options(sig-viz PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
@@ -51,3 +57,16 @@ if(PRODUCTION_BUILD AND WIN32)
 		target_link_options(sig-viz PRIVATE -mwindows)
 	endif()
 endif()
+
+
+# ---- tests -----------------------------------------------------------------------------------------
+
+# Numeric checks of src/core (no UI). Build and run: cmake --build <dir> && ctest --test-dir <dir>
+enable_testing()
+add_executable(core-tests tests/core_tests.cpp)
+target_include_directories(core-tests PRIVATE src)
+target_link_libraries(core-tests PRIVATE pocketfft)
+if(MSVC)
+	target_compile_options(core-tests PRIVATE /W4 /utf-8)
+endif()
+add_test(NAME core COMMAND core-tests)

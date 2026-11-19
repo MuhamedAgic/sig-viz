@@ -93,6 +93,12 @@ namespace ui {
 		explain(text);
 	}
 
+	// "computing..." with moving dots, while work runs in the background.
+	inline void busy(const char* what) {
+		const int dots = static_cast<int>(ImGui::GetTime() * 3.0) % 4;
+		ImGui::TextDisabled("%s%.*s", what, dots, "...");
+	}
+
 	// Greyed-out text that wraps.
 	inline void hint(const char* text) {
 		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));

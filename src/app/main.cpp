@@ -7,6 +7,7 @@
 #include <rlImGui.h>
 
 #include "app.hpp"
+#include "screenshot.hpp"
 
 namespace {
 
@@ -60,6 +61,7 @@ int main() {
 		rlImGuiBegin();
 		app.draw();
 		rlImGuiEnd();
+		screenshot::process(); // the frame is drawn now: "Save PNG" can grab it
 		EndDrawing();
 	}
 }

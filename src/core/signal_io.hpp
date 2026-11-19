@@ -10,9 +10,12 @@
 //   cu8  : raw interleaved uint8   I/Q   (RTL-SDR)
 //   f32  : raw float32, a single real channel
 //
+//   SigMF: a raw file (.sigmf-data) plus a small JSON file (.sigmf-meta) that says its format, sample
+//          rate and the frequency it was recorded at (https://sigmf.org).
+//
 // Raw files have no header, so the sample rate has to be supplied when loading them.
-// Everything is little-endian. Files are read and written in one go (fine up to a few
-// hundred MB; stream in chunks if you need more).
+// Everything is little-endian. Raw files can be loaded in part (a start time and a length), so a
+// recording of many gigabytes can be looked at piece by piece.
 
 #include <algorithm>
 #include <array>
@@ -83,7 +86,23 @@ namespace sig::io {
 	struct LoadOptions {
 		Format format = Format::Wav;
 		float  sample_rate = 48'000.0f; // ignored for WAV, which stores its own
+		double center_hz = 0.0;         // the frequency the receiver was tuned to (radio recordings)
+		double start_seconds = 0.0;     // raw files: skip this much
+		double max_seconds = 0.0;       // raw files: load at most this much (0 = everything)
 	};
+
+	// Bytes per frame (one sample of every channel) of a raw format.
+	[[nodiscard]] inline std::size_t frame_bytes(Format format) {
+		switch (format) {
+		case Format::CF32: return 8;
+		case Format::CS16: return 4;
+		case Format::CS8:  return 2;
+		case Format::CU8:  return 2;
+		case Format::F32:  return 4;
+		case Format::Wav:  return 0;
+		}
+		std::unreachable();
+	}
 
 	using Result = std::expected<void, std::string>;
 
@@ -192,12 +211,17 @@ namespace sig::io {
 			for (const char c : tag) out.push_back(static_cast<std::byte>(c));
 		}
 
-		[[nodiscard]] inline std::expected<std::vector<std::byte>, std::string> read_file(const std::filesystem::path& path) {
+		// The bytes [offset, offset + max_bytes) of a file (max_bytes 0 = to the end).
+		[[nodiscard]] inline std::expected<std::vector<std::byte>, std::string> read_file(const std::filesystem::path& path,
+			std::size_t offset = 0, std::size_t max_bytes = 0) {
 			std::ifstream in(path, std::ios::binary | std::ios::ate);
 			if (!in) return std::unexpected(std::format("Cannot open '{}'", path.string()));
 
-			const auto size = static_cast<std::size_t>(in.tellg());
-			in.seekg(0);
+			const auto file_size = static_cast<std::size_t>(in.tellg());
+			if (offset >= file_size) return std::unexpected("The start is past the end of the file");
+			std::size_t size = file_size - offset;
+			if (max_bytes > 0) size = std::min(size, max_bytes);
+			in.seekg(static_cast<std::streamoff>(offset));
 
 			std::vector<std::byte> bytes(size);
 			if (!in.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(size)))
@@ -334,7 +358,14 @@ namespace sig::io {
 
 	[[nodiscard]] inline std::expected<Signal, std::string> load(const std::filesystem::path& path,
 		const LoadOptions& options) {
-		const auto bytes = detail::read_file(path);
+		// Raw files: only the part asked for, whole frames only.
+		std::size_t offset = 0, max_bytes = 0;
+		if (options.format != Format::Wav && options.sample_rate > 0.0f) {
+			const std::size_t frame = frame_bytes(options.format);
+			offset = static_cast<std::size_t>(std::max(options.start_seconds, 0.0) * options.sample_rate) * frame;
+			if (options.max_seconds > 0.0) max_bytes = std::max<std::size_t>(1, static_cast<std::size_t>(options.max_seconds * options.sample_rate)) * frame;
+		}
+		const auto bytes = detail::read_file(path, offset, max_bytes);
 		if (!bytes) return std::unexpected(bytes.error());
 
 		auto decoded = options.format == Format::Wav ? detail::decode_wav(*bytes)
@@ -342,7 +373,74 @@ namespace sig::io {
 		if (!decoded) return std::unexpected(std::move(decoded.error()));
 		if (decoded->channels.front().empty()) return std::unexpected("The file contains no samples");
 
-		return detail::to_signal(path, options.format, std::move(*decoded));
+		Signal signal = detail::to_signal(path, options.format, std::move(*decoded));
+		signal.center_hz = options.center_hz;
+		if (offset > 0 || max_bytes > 0)
+			signal.description += std::format(", from {:g} s, {:.4g} s long", options.start_seconds, signal.duration());
+		return signal;
+	}
+
+	// ---- SigMF ----------------------------------------------------------------------------------
+
+	[[nodiscard]] inline bool is_sigmf(const std::filesystem::path& path) {
+		const auto ext = path.extension().string();
+		return ext == ".sigmf-meta" || ext == ".sigmf-data";
+	}
+
+	struct SigmfInfo {
+		std::filesystem::path data;   // the samples
+		Format                format = Format::CF32;
+		float                 sample_rate = 0.0f;
+		double                center_hz = 0.0;
+		std::string           description;
+	};
+
+	namespace detail {
+
+		// The value after "key": in a JSON text: a string (without quotes) or a number. Just enough JSON
+		// for SigMF's few fields, without a JSON library.
+		[[nodiscard]] inline std::optional<std::string> json_value(std::string_view text, std::string_view key) {
+			const std::string quoted = std::format("\"{}\"", key);
+			std::size_t at = text.find(quoted);
+			if (at == std::string_view::npos) return std::nullopt;
+			at = text.find(':', at + quoted.size());
+			if (at == std::string_view::npos) return std::nullopt;
+			at = text.find_first_not_of(" \t\r\n", at + 1);
+			if (at == std::string_view::npos) return std::nullopt;
+			if (text[at] == '"') {
+				const std::size_t end = text.find('"', at + 1);
+				return std::string(text.substr(at + 1, end - at - 1));
+			}
+			const std::size_t end = text.find_first_of(",}] \t\r\n", at);
+			return std::string(text.substr(at, end - at));
+		}
+
+	} // namespace detail
+
+	// Reads a .sigmf-meta (given either file of the pair).
+	[[nodiscard]] inline std::expected<SigmfInfo, std::string> read_sigmf(const std::filesystem::path& path) {
+		std::filesystem::path meta = path, data = path;
+		meta.replace_extension(".sigmf-meta");
+		data.replace_extension(".sigmf-data");
+		const auto bytes = detail::read_file(meta);
+		if (!bytes) return std::unexpected(std::format("Needs the .sigmf-meta file next to the data: {}", bytes.error()));
+		const std::string_view text{ reinterpret_cast<const char*>(bytes->data()), bytes->size() };
+
+		SigmfInfo info{ .data = data };
+		const auto type = detail::json_value(text, "core:datatype");
+		if (!type) return std::unexpected("The .sigmf-meta has no core:datatype");
+		if (*type == "cf32_le" || *type == "cf32") info.format = Format::CF32;
+		else if (*type == "ci16_le" || *type == "ci16") info.format = Format::CS16;
+		else if (*type == "ci8") info.format = Format::CS8;
+		else if (*type == "cu8") info.format = Format::CU8;
+		else if (*type == "rf32_le" || *type == "rf32") info.format = Format::F32;
+		else return std::unexpected(std::format("Sample type '{}' is not supported (cf32, ci16, ci8, cu8 and rf32 are)", *type));
+
+		if (const auto rate = detail::json_value(text, "core:sample_rate")) info.sample_rate = std::stof(*rate);
+		if (const auto frequency = detail::json_value(text, "core:frequency")) info.center_hz = std::stod(*frequency);
+		if (const auto description = detail::json_value(text, "core:description")) info.description = *description;
+		if (!(info.sample_rate > 0.0f)) return std::unexpected("The .sigmf-meta has no core:sample_rate");
+		return info;
 	}
 
 	[[nodiscard]] inline Result save(const Signal& signal, const std::filesystem::path& path, Format format) {

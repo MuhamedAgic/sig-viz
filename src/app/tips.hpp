@@ -92,4 +92,54 @@ namespace tips {
 		"match best (cross-correlation). Finds delays.";
 	inline constexpr const char* difference = "What is left after subtracting B from A. Silence means they are identical.";
 
+	inline constexpr const char* ab_listen =
+		"Switch between hearing the original (A) and the result (B) while it plays. Our ears forget quickly, "
+		"so switching back and forth is the best way to hear what a filter really does.";
+
+	// ---- digital receiver ----
+	inline constexpr const char* line_coding =
+		"How data bits become the bits that are sent.\n"
+		"NRZ: as they are.\n"
+		"Manchester: every bit becomes a pair (1 -> 10, 0 -> 01), so there is an edge in every bit and the "
+		"receiver can always keep time. Common in remote controls and car keys.";
+	inline constexpr const char* follow =
+		"Decode like a real receiver: follow the carrier when it is a bit off 0 Hz (the constellation stops "
+		"spinning) and adjust to the symbol clock (no Timing slider needed). Use it for real recordings.";
+	inline constexpr const char* identify =
+		"Guesses the modulation, symbol rate and frequency of the part around the playhead (or the selection), "
+		"and explains how it decided. Works best on a part that only holds the signal: select a burst first.";
+	inline constexpr const char* sync_word =
+		"A fixed bit pattern a transmitter sends before every packet, so the receiver knows where the data "
+		"starts. Type it here to find the packets; what follows is shown as bytes (hex) and text.";
+	inline constexpr const char* bursts =
+		"Radio recordings are mostly silence with short transmissions. This lists every stretch that is "
+		"clearly louder than the background (the noise floor). Click one to select it.";
+
+	// ---- live ----
+	inline constexpr const char* rtl_tcp =
+		"rtl_tcp is a small server that comes with the RTL-SDR drivers. Plug in the radio stick, run "
+		"`rtl_tcp` (it listens on port 1234), then press Start here. Type a frequency and press Enter to tune, "
+		"e.g. 100 MHz for FM radio, 433.92 MHz for remote controls and weather stations.";
+
+	// ---- audio ----
+	inline constexpr const char* pitch =
+		"The note being played, like a guitar tuner. Found by sliding the sound along itself: at a shift of exactly "
+		"one period it lines up with itself. 100 cents = one semitone (the step between two piano keys); within "
+		"5 cents sounds in tune.";
+	inline constexpr const char* lufs =
+		"Loudness as we hear it (LUFS: loudness units relative to full scale). Unlike RMS it weighs frequencies "
+		"like our ears do. Momentary = last 0.4 s, short-term = last 3 s, integrated = the whole signal without "
+		"its silences. Streaming services play music at about -14 LUFS, TV at -23.";
+	inline constexpr const char* clipping =
+		"A recording can't go beyond full scale (1.0). When the sound was louder, the tops of the waves are cut "
+		"off flat: clipping. It sounds harsh and can't be undone; record at a lower level next time.";
+
+	// ---- spectrum analyser tools ----
+	inline constexpr const char* max_hold =
+		"Remembers the highest level each frequency has reached while you play or scrub. "
+		"Catches short bursts you would otherwise miss.";
+	inline constexpr const char* freeze =
+		"Keeps a grey copy of the spectrum as it is now. Change something (a filter, another part of the "
+		"signal) and compare the live trace with it: before and after on one plot.";
+
 } // namespace tips

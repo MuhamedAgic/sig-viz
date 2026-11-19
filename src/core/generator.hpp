@@ -82,9 +82,11 @@ namespace sig::generator {
 		float      sweep_to = 4000.0f;     // Sweep: frequency at the end
 
 		// Digital data
-		digital::Scheme scheme = digital::Scheme::BPSK;
-		float           symbol_rate = 100.0f;
-		std::string     bits = "1011001110001011"; // repeated for as long as the signal lasts
+		digital::Scheme   scheme = digital::Scheme::BPSK;
+		digital::LineCode line_code = digital::LineCode::NRZ;
+		float             symbol_rate = 100.0f;
+		float             fsk_deviation = 500.0f; // FSK: a 1 is this many Hz above the carrier, a 0 this many below
+		std::string       bits = "1011001110001011"; // repeated for as long as the signal lasts
 
 		// Noise on top
 		bool     add_noise = false;
@@ -120,6 +122,7 @@ namespace sig::generator {
 			break;
 		case Source::Digital:
 			text = std::format("{} {:g} baud", name(s.scheme), s.symbol_rate);
+			if (s.line_code == digital::LineCode::Manchester) text += ", Manchester";
 			if (s.frequency != 0.0f) text += " on " + format_hz(s.frequency);
 			break;
 		}
@@ -133,7 +136,8 @@ namespace sig::generator {
 		const double frames = static_cast<double>(s.sample_rate) * s.seconds;
 		if (frames > 200e6) return std::unexpected("That would be over 200 million samples; shorten it or lower the sample rate");
 
-		const std::vector<bool> bits = digital::parse_bits(s.bits);
+		// What is sent: the bits, Manchester-coded if asked (two "chips" per bit).
+		const std::vector<bool> bits = digital::parse_bits(s.line_code == digital::LineCode::Manchester ? digital::manchester_encode(s.bits) : s.bits);
 		if (s.source == Source::Digital && bits.empty()) return std::unexpected("Type a bit pattern of 0s and 1s");
 		if (s.source == Source::Digital && !(s.symbol_rate > 0.0f)) return std::unexpected("The symbol rate must be greater than 0");
 
@@ -170,9 +174,15 @@ namespace sig::generator {
 			case Source::Digital: {
 				const std::size_t per_symbol = digital::bits_per_symbol(s.scheme);
 				const auto first_bit = static_cast<std::size_t>(t * s.symbol_rate) * per_symbol;
-				const std::complex<double> symbol = digital::symbol(s.scheme,
-					bits[first_bit % bits.size()], bits[(first_bit + 1) % bits.size()]);
-				z = static_cast<double>(s.amplitude) * symbol * std::polar(1.0, tau * s.frequency * t); // on a carrier, if frequency != 0
+				const bool b0 = bits[first_bit % bits.size()], b1 = bits[(first_bit + 1) % bits.size()];
+				if (s.scheme == digital::Scheme::FSK) {
+					// The frequency moves up or down per bit; the phase runs on smoothly (no jumps).
+					z = std::polar(static_cast<double>(s.amplitude), phase);
+					phase = std::fmod(phase + tau * (s.frequency + (b0 ? 1.0 : -1.0) * s.fsk_deviation) / rate, tau);
+				}
+				else {
+					z = static_cast<double>(s.amplitude) * digital::symbol(s.scheme, b0, b1) * std::polar(1.0, tau * s.frequency * t); // on a carrier, if frequency != 0
+				}
 				break;
 			}
 			}

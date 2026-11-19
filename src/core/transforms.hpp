@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <complex>
 #include <cstddef>
@@ -32,6 +33,7 @@ namespace sig::transform {
 		// A signal with the same name, description, rate and zoom as `like`, but new samples.
 		[[nodiscard]] inline Signal with_channels(const Signal& like, Layout layout, std::vector<std::vector<float>> channels) {
 			Signal out{ like.name, like.description, like.sample_rate, like.default_view_seconds, layout, std::move(channels) };
+			out.center_hz = like.center_hz;
 			return out;
 		}
 
@@ -166,6 +168,7 @@ namespace sig::transform {
 		float      low_hz = 300.0f;
 		float      high_hz = 3000.0f;
 		int        taps = 101; // filter length: more taps = sharper edges, slower
+		bool operator==(const FilterSpec&) const = default;
 	};
 
 	// FIR filter coefficients (windowed sinc). Always an odd count, symmetric around the middle tap,
@@ -221,25 +224,83 @@ namespace sig::transform {
 		return taps_out;
 	}
 
+	namespace detail {
+
+		// y[n] = sum_k h[k] * x[n + k - middle]: the filter centred on each sample, so nothing is delayed.
+		// The direct way: one multiply-add per tap per sample.
+		inline void convolve_direct(std::vector<float>& x, std::span<const float> h) {
+			const std::size_t middle = h.size() / 2;
+			// Pad with silence so every output sample can use all taps without bounds checks.
+			std::vector<float> padded(x.size() + 2 * middle, 0.0f);
+			std::ranges::copy(x, padded.begin() + static_cast<std::ptrdiff_t>(middle));
+			for (std::size_t n = 0; n < x.size(); ++n) {
+				float sum = 0.0f;
+				for (std::size_t k = 0; k < h.size(); ++k) sum += h[k] * padded[n + k];
+				x[n] = sum;
+			}
+		}
+
+		// The same result through the FFT ("overlap-add"), much faster for long filters: in the frequency
+		// domain, filtering is one multiplication per frequency instead of a sum over all taps.
+		// The signal is cut into blocks; each filtered block is longer than the block (it rings on), so
+		// its tail overlaps the next block and is added to it.
+		inline void convolve_fft(std::vector<Complex>& x, std::span<const float> h) {
+			const std::size_t middle = h.size() / 2;
+			const std::size_t size = std::max<std::size_t>(std::bit_ceil(4 * h.size()), 1024);
+			const std::size_t step = size - h.size() + 1; // new input samples per block
+
+			std::vector<Complex> response(size);
+			std::ranges::copy(h, response.begin());
+			fft::forward(response);
+
+			std::vector<Complex> out(x.size()), block(size);
+			for (std::size_t start = 0; start < x.size(); start += step) {
+				std::ranges::fill(block, Complex{});
+				const std::size_t count = std::min(step, x.size() - start);
+				std::copy_n(x.begin() + static_cast<std::ptrdiff_t>(start), count, block.begin());
+				fft::forward(block);
+				for (std::size_t k = 0; k < size; ++k) block[k] *= response[k];
+				fft::inverse(block);
+				// block[k] belongs at full-convolution index start + k, i.e. output index start + k - middle.
+				for (std::size_t k = 0; k < count + h.size() - 1; ++k) {
+					const std::size_t full = start + k;
+					if (full >= middle && full - middle < out.size()) out[full - middle] += block[k];
+				}
+			}
+			x = std::move(out);
+		}
+
+	} // namespace detail
+
 	// Filters every channel. I/Q signals get the same response at -f as at +f.
 	[[nodiscard]] inline Result filter(const Signal& signal, const FilterSpec& spec) {
 		const std::vector<float> h = design_filter(spec, signal.sample_rate);
-		const std::size_t middle = h.size() / 2;
-
-		Signal out = signal;
-		std::vector<float> padded;
-		for (auto& channel : out.channels) {
-			// Pad with silence so every output sample can use all taps without bounds checks.
-			padded.assign(channel.size() + 2 * middle, 0.0f);
-			std::ranges::copy(channel, padded.begin() + static_cast<std::ptrdiff_t>(middle));
-
-			for (std::size_t n = 0; n < channel.size(); ++n) {
-				float sum = 0.0f;
-				for (std::size_t k = 0; k < h.size(); ++k) sum += h[k] * padded[n + k];
-				channel[n] = sum;
-			}
+		if (h.size() < 64) { // short filter: the direct sum is quicker than setting up FFTs
+			Signal out = signal;
+			for (auto& channel : out.channels) detail::convolve_direct(channel, h);
+			return out;
 		}
+		// Real taps on I + jQ filter I and Q separately, so both channels go through one complex FFT.
+		std::vector<Complex> z = detail::to_complex(signal);
+		detail::convolve_fft(z, h);
+		if (signal.is_iq()) return detail::from_complex(signal, z);
+		std::vector<float> real(z.size());
+		std::ranges::transform(z, real.begin(), [](Complex v) { return v.real(); });
+		return detail::from_real(signal, std::move(real));
+	}
+
+	// filter() without the FFT shortcut, for checking it.
+	[[nodiscard]] inline Result filter_direct(const Signal& signal, const FilterSpec& spec) {
+		const std::vector<float> h = design_filter(spec, signal.sample_rate);
+		Signal out = signal;
+		for (auto& channel : out.channels) detail::convolve_direct(channel, h);
 		return out;
+	}
+
+	// How many taps a filter needs for an edge `transition_hz` wide (steeper = more), kept affordable.
+	[[nodiscard]] inline int taps_for(double transition_hz, double sample_rate) {
+		const double taps = 4.0 * sample_rate / std::max(transition_hz, 1e-9); // rule of thumb for the Blackman window
+		return static_cast<int>(std::clamp(taps, 31.0, 4001.0)) | 1;
 	}
 
 	// ---- frequency and rate -----------------------------------------------------------------------
@@ -255,7 +316,30 @@ namespace sig::transform {
 			const double phase = tau * hz * static_cast<double>(n) / signal.sample_rate;
 			z[n] *= Complex{ static_cast<float>(std::cos(phase)), static_cast<float>(std::sin(phase)) };
 		}
-		return detail::from_complex(signal, z);
+		Signal out = detail::from_complex(signal, z);
+		out.center_hz = signal.center_hz - hz; // what was at f now shows at f + hz, but it is still the same station
+		return out;
+	}
+
+	// Keeps only [low_hz, high_hz]. Unlike a band-pass filter() (whose response is mirrored around 0 Hz),
+	// this also works on one side of an I/Q signal: the band is moved to 0 Hz, low-passed, and moved back.
+	// A real signal stays real (its spectrum is mirrored anyway).
+	[[nodiscard]] inline Result band_pass(const Signal& signal, double low_hz, double high_hz) {
+		if (!(high_hz > low_hz)) return std::unexpected("The band is empty");
+		const double width = high_hz - low_hz;
+		const int taps = taps_for(width * 0.2, signal.sample_rate);
+		if (!signal.is_iq()) {
+			const FilterSpec spec{ FilterType::BandPass, static_cast<float>(std::max(low_hz, 0.0)), static_cast<float>(high_hz), taps };
+			return filter(signal, spec);
+		}
+		const double centre = (low_hz + high_hz) / 2.0;
+		auto down = shift_frequency(signal, -centre);
+		if (!down) return down;
+		auto narrow = filter(*down, { FilterType::LowPass, 0.0f, static_cast<float>(width / 2.0), taps });
+		if (!narrow) return narrow;
+		auto back = shift_frequency(*narrow, centre);
+		if (back) back->center_hz = signal.center_hz;
+		return back;
 	}
 
 	// Converts to another sample rate with windowed-sinc interpolation. When the rate goes down,
@@ -402,6 +486,34 @@ namespace sig::transform {
 		std::vector<float> real(out.size());
 		for (std::size_t n = 0; n < out.size(); ++n) real[n] = out[n].real();
 		return detail::from_real(a, std::move(real));
+	}
+
+	// ---- extracting ---------------------------------------------------------------------------------
+
+	// One station out of a recording: the part [begin, end) seconds and [low_hz, high_hz], moved to 0 Hz,
+	// filtered, and at a sample rate that just fits the band (smaller and faster to work with). I/Q result.
+	// Like a radio tuning in to one station: tune (shift), keep only that station (filter), and stop
+	// recording more detail than the station needs (lower rate).
+	[[nodiscard]] inline Result extract_band(const Signal& signal, double begin, double end, double low_hz, double high_hz) {
+		if (!(high_hz > low_hz)) return std::unexpected("The band is empty");
+		auto part = trim(signal, begin, end);
+		if (!part) return part;
+		const double centre = (low_hz + high_hz) / 2.0;
+		const double width = high_hz - low_hz;
+
+		auto down = shift_frequency(*part, -centre);
+		if (!down) return down;
+		auto narrow = filter(*down, { FilterType::LowPass, 0.0f, static_cast<float>(width / 2.0), taps_for(width * 0.2, down->sample_rate) });
+		if (!narrow) return narrow;
+
+		// The band is `width` wide around 0 Hz; an I/Q rate of twice that leaves room for the filter's edges.
+		const double rate = std::min<double>(signal.sample_rate, std::max(2.0 * width, 100.0));
+		Result out = rate < narrow->sample_rate * 0.9 ? resample(*narrow, static_cast<float>(rate)) : std::move(narrow);
+		if (out) {
+			out->center_hz = signal.center_hz + centre;
+			out->default_view_seconds = std::clamp(20.0f / static_cast<float>(width), 1e-4f, std::min(10.0f, out->duration()));
+		}
+		return out;
 	}
 
 } // namespace sig::transform

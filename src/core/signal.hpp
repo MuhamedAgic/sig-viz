@@ -43,6 +43,10 @@ namespace sig {
 		// Real: { samples }      IQ: { I, Q } (same length)
 		std::vector<std::vector<float>> channels;
 
+		// For radio recordings: the frequency the receiver was tuned to, so 0 Hz in the signal is this many
+		// Hz on the dial. Frequency axes add it. 0 = not a radio recording (or not known).
+		double center_hz = 0.0;
+
 		[[nodiscard]] std::size_t frames() const { return channels.empty() ? 0 : channels.front().size(); }
 		[[nodiscard]] float duration() const { return static_cast<float>(frames()) / sample_rate; }
 		[[nodiscard]] bool  is_iq() const { return layout == Layout::IQ; }

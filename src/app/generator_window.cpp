@@ -70,6 +70,12 @@ void GeneratorWindow::draw(Workspace& ws) {
 		ui::help(tips::scheme);
 		ImGui::InputFloat("Symbol rate (baud)", &s.symbol_rate, 0.0f, 0.0f, "%.1f");
 		ui::help(tips::symbol_rate);
+		if (s.scheme == sig::digital::Scheme::FSK) {
+			ImGui::InputFloat("Deviation (Hz)", &s.fsk_deviation, 0.0f, 0.0f, "%.0f");
+			ui::help("How far the frequency moves for a 1 (up) and a 0 (down).");
+		}
+		ui::enum_combo("Line coding", s.line_code, sig::digital::all_line_codes);
+		ui::help(tips::line_coding);
 		ImGui::SliderFloat("Carrier (Hz)", &s.frequency, s.iq ? -nyquist : 0.0f, nyquist, "%.1f Hz");
 		ui::help(tips::carrier);
 		ImGui::SetNextItemWidth(-FLT_MIN);

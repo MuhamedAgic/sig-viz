@@ -26,6 +26,7 @@ namespace sig::analysis {
 		double dc = 0.0;   // average value (I/Q: magnitude of the average)
 		double rms = 0.0;  // root mean square: the "energy" level
 		double peak = 0.0; // largest magnitude
+		std::size_t clipped = 0; // samples at full scale: the recording hit its ceiling and the tops were cut off
 		[[nodiscard]] double crest_db() const { return rms > 0.0 ? 20.0 * std::log10(peak / rms) : 0.0; }
 	};
 
@@ -37,17 +38,20 @@ namespace sig::analysis {
 		std::complex<double> sum{};
 		double sum_squares = 0.0;
 		double peak = 0.0;
+		std::size_t clipped = 0;
 		for (std::size_t i = begin; i < end; ++i) {
-			const std::complex<double> z = signal.complex_at(i);
-			sum += z;
-			sum_squares += std::norm(z);
-			peak = std::max(peak, std::abs(z));
+			const std::complex<float> z = signal.complex_at(i);
+			sum += std::complex<double>(z);
+			sum_squares += std::norm(std::complex<double>(z));
+			peak = std::max(peak, static_cast<double>(std::abs(z)));
+			if (std::abs(z.real()) >= 0.999f || std::abs(z.imag()) >= 0.999f) ++clipped;
 		}
 		const auto count = static_cast<double>(end - begin);
 		return {
 			.dc = signal.is_iq() ? std::abs(sum) / count : sum.real() / count,
 			.rms = std::sqrt(sum_squares / count),
 			.peak = peak,
+			.clipped = clipped,
 		};
 	}
 

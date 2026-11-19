@@ -30,6 +30,34 @@ namespace plots {
 		ImPlot::PopPlotClipRect();
 	}
 
+	// A horizontal line across the whole plot at y.
+	inline void horizontal_line(double y, ImU32 color, float thickness = 1.0f) {
+		const float py = ImPlot::PlotToPixels(0.0, y).y;
+		const ImVec2 pos = ImPlot::GetPlotPos(), size = ImPlot::GetPlotSize();
+		ImPlot::PushPlotClipRect();
+		ImPlot::GetPlotDrawList()->AddLine({ pos.x, py }, { pos.x + size.x, py }, color, thickness);
+		ImPlot::PopPlotClipRect();
+	}
+
+	// The outline of a box, in plot coordinates.
+	inline void rectangle(double x0, double y0, double x1, double y1, ImU32 color) {
+		ImPlot::PushPlotClipRect();
+		ImPlot::GetPlotDrawList()->AddRect(ImPlot::PlotToPixels(x0, y1), ImPlot::PlotToPixels(x1, y0), color, 0.0f, 0, 1.5f);
+		ImPlot::PopPlotClipRect();
+	}
+
+	inline constexpr ImU32 hover_color = IM_COL32(255, 255, 255, 70);
+
+	// Where the mouse points in another window: a faint line at that time (x axis = time) and/or
+	// frequency (horizontal: frequency is the y axis, else the x axis).
+	inline void hover_marks(const Workspace& ws, bool time_on_x, bool frequency_on_y) {
+		if (time_on_x && ws.hover.seconds) vertical_line(*ws.hover.seconds, hover_color, 1.0f);
+		if (ws.hover.hz) {
+			if (frequency_on_y) horizontal_line(*ws.hover.hz, hover_color);
+			else if (!time_on_x) vertical_line(*ws.hover.hz, hover_color, 1.0f);
+		}
+	}
+
 	// The workspace's selection and cursors, for plots whose x axis is time in seconds.
 	inline void time_marks(const Workspace& ws) {
 		if (ws.selection) {
