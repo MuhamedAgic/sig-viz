@@ -185,7 +185,7 @@ namespace sig::analysis {
 		const bool two_values = typical > rate * 1e-4 && static_cast<double>(near_middle) < 0.15 * static_cast<double>(frequency.size());
 
 		// "What changed from one sample to the next", for the symbol rate.
-		std::vector<std::complex<float>> change(z.size(), {});
+		std::vector<std::complex<float>> change(z.size()); // zero-initialised
 		if (variation > 0.35) {
 			id.scheme = digital::Scheme::OOK;
 			id.reasons = std::format("The strength jumps between levels (variation {:.0f} %): on-off keying.", variation * 100.0);
