@@ -29,7 +29,9 @@ namespace {
 		failures += ok ? 0 : 1;
 	}
 
-	bool near(double value, double expected, double tolerance) { return std::abs(value - expected) <= tolerance; }
+	bool near(double value, double expected, double tolerance) {
+		return std::abs(value - expected) <= tolerance;
+	}
 
 	Signal tone(double hz, float rate = 48'000.0f, float seconds = 1.0f, bool iq = false, float amplitude = 1.0f) {
 		generator::Settings s;
@@ -41,11 +43,19 @@ namespace {
 		return *generator::synthesize(s);
 	}
 
-	fft::Spectrum spectrum_of(const Signal& s, std::size_t size, fft::Window window, std::size_t begin = 0, std::size_t end = 0) {
+	fft::Spectrum spectrum_of(
+		const Signal& s,
+		std::size_t   size,
+		fft::Window   window,
+		std::size_t   begin = 0,
+		std::size_t   end = 0
+	) {
 		return fft::Analyzer(size, window).average(s, begin, end ? end : s.frames());
 	}
 
-	double rms(const Signal& s, std::size_t margin = 1000) { return analysis::levels(s, margin, s.frames() - margin).rms; }
+	double rms(const Signal& s, std::size_t margin = 1000) {
+		return analysis::levels(s, margin, s.frames() - margin).rms;
+	}
 
 	// ---- spectra and measurements ---------------------------------------------------------------------
 
@@ -56,7 +66,8 @@ namespace {
 			check(near(peak->db, 0, 0.1), "real tone: full scale reads 0 dBFS (flat top)", peak->db);
 		}
 		{
-			const auto peak = analysis::strongest(spectrum_of(tone(-2000, 48'000, 1, true, 0.5f), 4096, fft::Window::FlatTop));
+			const auto peak =
+				analysis::strongest(spectrum_of(tone(-2000, 48'000, 1, true, 0.5f), 4096, fft::Window::FlatTop));
 			check(near(peak->hz, -2000, 2), "I/Q tone at -2 kHz", peak->hz);
 			check(near(peak->db, -6.02, 0.1), "I/Q tone, amplitude 0.5: -6 dBFS", peak->db);
 		}
@@ -66,19 +77,32 @@ namespace {
 			g.amplitude = 1;
 			g.add_noise = true;
 			g.snr_db = 30;
-			const auto q = analysis::tone_quality(spectrum_of(*generator::synthesize(g), 4096, fft::Window::Hann), false, fft::lobe_half_width(fft::Window::Hann));
+			const auto q = analysis::tone_quality(
+				spectrum_of(*generator::synthesize(g), 4096, fft::Window::Hann),
+				false,
+				fft::lobe_half_width(fft::Window::Hann)
+			);
 			check(near(q->snr_db, 30, 1), "SNR of a tone with 30 dB noise", q->snr_db);
 		}
 		{
 			generator::Settings g;
 			g.frequency = 1000;
 			g.waveform = generator::Waveform::Square;
-			const auto q = analysis::tone_quality(spectrum_of(*generator::synthesize(g), 8192, fft::Window::Blackman), false, 3);
-			check(q->thd_db && near(*q->thd_db, -7.36, 0.3), "square wave THD (harmonics 3..9) ~ -7.4 dB", q->thd_db.value_or(0));
+			const auto q =
+				analysis::tone_quality(spectrum_of(*generator::synthesize(g), 8192, fft::Window::Blackman), false, 3);
+			check(
+				q->thd_db && near(*q->thd_db, -7.36, 0.3),
+				"square wave THD (harmonics 3..9) ~ -7.4 dB",
+				q->thd_db.value_or(0)
+			);
 		}
 		for (const auto window : { fft::Window::Hann, fft::Window::Blackman, fft::Window::FlatTop }) {
 			const double limit = window == fft::Window::Hann ? 50 : window == fft::Window::Blackman ? 70 : 85;
-			const auto q = analysis::tone_quality(spectrum_of(tone(440, 44'100, 2, false, 0.8f), 4096, window, 0, 4096), false, fft::lobe_half_width(window));
+			const auto   q = analysis::tone_quality(
+				spectrum_of(tone(440, 44'100, 2, false, 0.8f), 4096, window, 0, 4096),
+				false,
+				fft::lobe_half_width(window)
+			);
 			check(q->snr_db > limit, std::format("clean sine has a high SNR ({})", fft::name(window)), q->snr_db);
 		}
 		{
@@ -96,78 +120,141 @@ namespace {
 		g.source = generator::Source::Noise;
 		g.seconds = 0.5;
 		const Signal a = *generator::synthesize(g);
-		Signal delayed = a;
-		for (auto& channel : delayed.channels) channel.insert(channel.begin(), 123, 0.0f);
+		Signal       delayed = a;
+		for (auto& channel : delayed.channels) {
+			channel.insert(channel.begin(), 123, 0.0f);
+		}
 
-		check(analysis::best_lag(delayed, a) == 123, "best_lag finds +123 samples", static_cast<double>(analysis::best_lag(delayed, a)));
-		check(analysis::best_lag(a, delayed) == -123, "best_lag finds -123 samples", static_cast<double>(analysis::best_lag(a, delayed)));
+		check(
+			analysis::best_lag(delayed, a) == 123,
+			"best_lag finds +123 samples",
+			static_cast<double>(analysis::best_lag(delayed, a))
+		);
+		check(
+			analysis::best_lag(a, delayed) == -123,
+			"best_lag finds -123 samples",
+			static_cast<double>(analysis::best_lag(a, delayed))
+		);
 		const auto same = analysis::similarity(delayed, a, 123);
-		check(same.correlation > 0.9999 && same.rms_difference < 1e-6, "aligned copies: correlation 1", same.correlation);
+		check(
+			same.correlation > 0.9999 && same.rms_difference < 1e-6,
+			"aligned copies: correlation 1",
+			same.correlation
+		);
 
 		Signal inverted = a;
-		for (auto& channel : inverted.channels)
-			for (float& v : channel) v = -v;
-		check(analysis::similarity(a, inverted, 0).correlation < -0.9999, "inverted copy: correlation -1", analysis::similarity(a, inverted, 0).correlation);
+		for (auto& channel : inverted.channels) {
+			for (float& v : channel) {
+				v = -v;
+			}
+		}
+		check(
+			analysis::similarity(a, inverted, 0).correlation < -0.9999,
+			"inverted copy: correlation -1",
+			analysis::similarity(a, inverted, 0).correlation
+		);
 	}
 
 	// ---- transforms --------------------------------------------------------------------------------------
 
 	void filters() {
 		const transform::FilterSpec low{ transform::FilterType::LowPass, 0, 1500, 101 };
-		check(near(rms(*transform::filter(tone(500), low)), 0.7071, 0.01), "low-pass 1.5 kHz keeps 500 Hz", rms(*transform::filter(tone(500), low)));
-		check(rms(*transform::filter(tone(5000), low)) < 0.001, "low-pass 1.5 kHz removes 5 kHz", rms(*transform::filter(tone(5000), low)));
+		check(
+			near(rms(*transform::filter(tone(500), low)), 0.7071, 0.01),
+			"low-pass 1.5 kHz keeps 500 Hz",
+			rms(*transform::filter(tone(500), low))
+		);
+		check(
+			rms(*transform::filter(tone(5000), low)) < 0.001,
+			"low-pass 1.5 kHz removes 5 kHz",
+			rms(*transform::filter(tone(5000), low))
+		);
 
 		const transform::FilterSpec band{ transform::FilterType::BandPass, 500, 2000, 301 };
-		check(near(rms(*transform::filter(tone(1000), band)), 0.7071, 0.02), "band-pass 0.5-2 kHz keeps 1 kHz", rms(*transform::filter(tone(1000), band)));
+		check(
+			near(rms(*transform::filter(tone(1000), band)), 0.7071, 0.02),
+			"band-pass 0.5-2 kHz keeps 1 kHz",
+			rms(*transform::filter(tone(1000), band))
+		);
 
 		const transform::FilterSpec high{ transform::FilterType::HighPass, 2000, 0, 101 };
-		check(rms(*transform::filter(tone(500), high)) < 0.001, "high-pass 2 kHz removes 500 Hz", rms(*transform::filter(tone(500), high)));
+		check(
+			rms(*transform::filter(tone(500), high)) < 0.001,
+			"high-pass 2 kHz removes 500 Hz",
+			rms(*transform::filter(tone(500), high))
+		);
 
 		// Long filters run through the FFT; they must give the same answer as the direct sum.
-		const Signal noise = *transform::add_noise(tone(300, 48'000, 0.3f), 0, 7);
+		const Signal                noise = *transform::add_noise(tone(300, 48'000, 0.3f), 0, 7);
 		const transform::FilterSpec sharp{ transform::FilterType::BandPass, 1000, 3000, 801 };
-		const Signal fast = *transform::filter(noise, sharp);
-		const Signal slow = *transform::filter_direct(noise, sharp);
-		float worst = 0.0f;
-		for (std::size_t i = 0; i < fast.frames(); ++i) worst = std::max(worst, std::abs(fast.channels[0][i] - slow.channels[0][i]));
+		const Signal                fast = *transform::filter(noise, sharp);
+		const Signal                slow = *transform::filter_direct(noise, sharp);
+		float                       worst = 0.0f;
+		for (std::size_t i = 0; i < fast.frames(); ++i) {
+			worst = std::max(worst, std::abs(fast.channels[0][i] - slow.channels[0][i]));
+		}
 		check(worst < 1e-4f, "FFT filtering = direct filtering", worst);
 
 		// I/Q band-pass around +5 kHz keeps +5 kHz and removes -5 kHz.
-		const Signal mix = *transform::combine(tone(5000, 48'000, 1, true), tone(-5000, 48'000, 1, true), transform::Combine::Add);
+		const Signal mix =
+			*transform::combine(tone(5000, 48'000, 1, true), tone(-5000, 48'000, 1, true), transform::Combine::Add);
 		const Signal kept = *transform::band_pass(mix, 4000, 6000);
-		const auto sp = spectrum_of(kept, 4096, fft::Window::Blackman);
-		const auto at = [&](double hz) { return to_db(sp.power[static_cast<std::size_t>(std::lround((hz - sp.first_hz) / sp.bin_hz))]); };
+		const auto   sp = spectrum_of(kept, 4096, fft::Window::Blackman);
+		const auto   at = [&](double hz) {
+			return to_db(sp.power[static_cast<std::size_t>(std::lround((hz - sp.first_hz) / sp.bin_hz))]);
+		};
 		check(at(5000) > -1 && at(-5000) < -60, "I/Q band-pass keeps +5 kHz, removes -5 kHz", at(-5000));
 	}
 
 	void rate_and_frequency() {
 		{
 			const Signal down = *transform::resample(tone(1000), 8000);
-			const auto peak = analysis::strongest(spectrum_of(down, 1024, fft::Window::FlatTop), 4);
-			check(down.frames() == 8000 && near(peak->hz, 1000, 1) && near(peak->db, 0, 0.2), "resample 48k -> 8k keeps a 1 kHz tone", peak->db);
+			const auto   peak = analysis::strongest(spectrum_of(down, 1024, fft::Window::FlatTop), 4);
+			check(
+				down.frames() == 8000 && near(peak->hz, 1000, 1) && near(peak->db, 0, 0.2),
+				"resample 48k -> 8k keeps a 1 kHz tone",
+				peak->db
+			);
 			const Signal aliased = *transform::resample(tone(6000), 8000);
 			check(rms(aliased, 100) < 0.01, "resample 48k -> 8k removes 6 kHz (no aliasing)", rms(aliased, 100));
 			const Signal up = *transform::resample(tone(1000, 8000), 48'000);
-			const auto peak_up = analysis::strongest(spectrum_of(up, 4096, fft::Window::FlatTop), 4);
-			check(near(peak_up->hz, 1000, 2) && near(peak_up->db, 0, 0.2), "resample 8k -> 48k keeps 1 kHz", peak_up->db);
+			const auto   peak_up = analysis::strongest(spectrum_of(up, 4096, fft::Window::FlatTop), 4);
+			check(
+				near(peak_up->hz, 1000, 2) && near(peak_up->db, 0, 0.2),
+				"resample 8k -> 48k keeps 1 kHz",
+				peak_up->db
+			);
 		}
 		{
 			const Signal z = *transform::to_iq(tone(1000));
-			const auto sp = spectrum_of(z, 4096, fft::Window::Blackman);
-			const double negative = to_db(sp.power[static_cast<std::size_t>(std::lround((-1000 - sp.first_hz) / sp.bin_hz))]);
-			check(z.is_iq() && near(analysis::strongest(sp)->hz, 1000, 1) && negative < -80, "Hilbert: only +1 kHz remains", negative);
+			const auto   sp = spectrum_of(z, 4096, fft::Window::Blackman);
+			const double negative =
+				to_db(sp.power[static_cast<std::size_t>(std::lround((-1000 - sp.first_hz) / sp.bin_hz))]);
+			check(
+				z.is_iq() && near(analysis::strongest(sp)->hz, 1000, 1) && negative < -80,
+				"Hilbert: only +1 kHz remains",
+				negative
+			);
 		}
 		{
 			const Signal shifted = *transform::shift_frequency(tone(1000, 48'000, 1, true), 500);
-			check(near(analysis::strongest(spectrum_of(shifted, 4096, fft::Window::Blackman))->hz, 1500, 1), "shift +1 kHz by +500 Hz", 0);
+			check(
+				near(analysis::strongest(spectrum_of(shifted, 4096, fft::Window::Blackman))->hz, 1500, 1),
+				"shift +1 kHz by +500 Hz",
+				0
+			);
 			check(shifted.center_hz == -500.0, "shifting moves the centre frequency the other way", shifted.center_hz);
 		}
 		{
 			// A band of a real signal, extracted: 3 kHz tone in 2.5-3.5 kHz comes out near 0 Hz at a low rate.
 			const Signal mix = *transform::combine(tone(3000), tone(9000), transform::Combine::Add);
 			const Signal band = *transform::extract_band(mix, 0.0, 1.0, 2500, 3500);
-			const auto peak = analysis::strongest(spectrum_of(band, 1024, fft::Window::FlatTop));
-			check(band.is_iq() && band.sample_rate < 5000 && near(peak->hz, 0, 5), "extract_band: 3 kHz moves to 0 Hz", peak->hz);
+			const auto   peak = analysis::strongest(spectrum_of(band, 1024, fft::Window::FlatTop));
+			check(
+				band.is_iq() && band.sample_rate < 5000 && near(peak->hz, 0, 5),
+				"extract_band: 3 kHz moves to 0 Hz",
+				peak->hz
+			);
 			check(band.center_hz == 3000.0, "extract_band: centre frequency = 3 kHz", band.center_hz);
 		}
 	}
@@ -178,19 +265,30 @@ namespace {
 		g.message_hz = 20;
 		g.modulation = generator::Modulation::AM;
 		const Signal am = *transform::am_demodulate(*generator::synthesize(g));
-		check(near(analysis::strongest(spectrum_of(am, 16384, fft::Window::Hann), 1)->hz, 20, 1), "AM demodulation recovers the 20 Hz message", 0);
+		check(
+			near(analysis::strongest(spectrum_of(am, 16384, fft::Window::Hann), 1)->hz, 20, 1),
+			"AM demodulation recovers the 20 Hz message",
+			0
+		);
 
 		g.modulation = generator::Modulation::FM;
 		g.fm_deviation = 300;
 		const Signal fm = *transform::fm_demodulate(*generator::synthesize(g));
-		check(near(analysis::strongest(spectrum_of(fm, 16384, fft::Window::Hann), 1)->hz, 20, 1), "FM demodulation recovers the 20 Hz message", 0);
+		check(
+			near(analysis::strongest(spectrum_of(fm, 16384, fft::Window::Hann), 1)->hz, 20, 1),
+			"FM demodulation recovers the 20 Hz message",
+			0
+		);
 	}
 
 	void editing() {
 		check(transform::trim(tone(1000), 0.25, 0.75)->frames() == 24000, "trim keeps 0.5 s");
 		const Signal zero = *transform::combine(tone(1000), tone(1000), transform::Combine::Subtract);
 		check(analysis::levels(zero, 0, zero.frames()).peak == 0, "A - A = 0");
-		check(!transform::combine(tone(1000), tone(1000, 8000), transform::Combine::Add).has_value(), "combine refuses different rates");
+		check(
+			!transform::combine(tone(1000), tone(1000, 8000), transform::Combine::Add).has_value(),
+			"combine refuses different rates"
+		);
 		const Signal normal = *transform::normalize(*transform::gain(tone(100), -20));
 		check(near(analysis::levels(normal, 0, normal.frames()).peak, 1, 1e-4), "normalise to peak 1");
 
@@ -200,7 +298,7 @@ namespace {
 		g.sweep_to = 4000;
 		g.seconds = 5;
 		const Signal sweep = *generator::synthesize(g);
-		const auto peak = analysis::strongest(spectrum_of(sweep, 4096, fft::Window::Hann, 235'200, 237'600), 4);
+		const auto   peak = analysis::strongest(spectrum_of(sweep, 4096, fft::Window::Hann, 235'200, 237'600), 4);
 		check(near(peak->hz, 3941, 15), "sweep reaches ~3.9 kHz at 4.92 s", peak->hz);
 		check(make_example_signals().size() >= 12, "example signals");
 	}
@@ -216,7 +314,10 @@ namespace {
 		check(back && *back == steps, "recipe: text and back gives the same steps");
 		check(!recipe::from_text("filter sideways 1 2 3").has_value(), "recipe: a broken line is reported");
 		const Signal made = *recipe::run(tone(1000), steps);
-		check(near(analysis::levels(made, 0, made.frames()).peak, 1, 1e-4) && made.name.ends_with("| normalised"), "recipe: run applies every step");
+		check(
+			near(analysis::levels(made, 0, made.frames()).peak, 1, 1e-4) && made.name.ends_with("| normalised"),
+			"recipe: run applies every step"
+		);
 	}
 
 	// ---- digital -----------------------------------------------------------------------------------------
@@ -224,7 +325,9 @@ namespace {
 	// What the generator sends: the pattern repeated to `count` bits.
 	std::string repeated(const std::string& pattern, std::size_t count) {
 		std::string out;
-		while (out.size() < count) out += pattern;
+		while (out.size() < count) {
+			out += pattern;
+		}
 		out.resize(count);
 		return out;
 	}
@@ -238,16 +341,23 @@ namespace {
 			g.iq = true;
 			g.symbol_rate = 100;
 			g.seconds = 0.32f;
-			const Signal s = *generator::synthesize(g);
+			const Signal      s = *generator::synthesize(g);
 			const std::string bits = digital::decode_signal(s, scheme, { 100, 0.5 }, 0, s.duration());
-			check(!bits.empty() && bits == repeated(g.bits, bits.size()), std::format("decode {} ({} bits)", digital::name(scheme), bits.size()), static_cast<double>(bits.size()));
+			check(
+				!bits.empty() && bits == repeated(g.bits, bits.size()),
+				std::format("decode {} ({} bits)", digital::name(scheme), bits.size()),
+				static_cast<double>(bits.size())
+			);
 		}
 
 		generator::Settings g;
 		g.source = generator::Source::Digital;
 		g.frequency = 0;
 		const Signal s = *generator::synthesize(g);
-		check(digital::eye_traces(s, 0, { 100, 0.5 }, 0, 1, 50, 64).size() == 50 * 64, "eye diagram: 50 traces of 64 points");
+		check(
+			digital::eye_traces(s, 0, { 100, 0.5 }, 0, 1, 50, 64).size() == 50 * 64,
+			"eye diagram: 50 traces of 64 points"
+		);
 	}
 
 	void line_coding() {
@@ -255,13 +365,19 @@ namespace {
 		const std::string chips = digital::manchester_encode(data);
 		check(chips.size() == 32 && chips.substr(0, 4) == "1001", "Manchester: 1 -> 10, 0 -> 01");
 		check(digital::manchester_decode(chips).bits == data, "Manchester decodes back");
-		check(digital::manchester_decode("0" + chips).bits.starts_with(data.substr(0, 15)), "Manchester finds the pair boundary");
+		check(
+			digital::manchester_decode("0" + chips).bits.starts_with(data.substr(0, 15)),
+			"Manchester finds the pair boundary"
+		);
 
 		const auto found = digital::find_sync("0000111010110011100", "10110011");
 		check(found.size() == 1 && found[0].position == 8 && !found[0].inverted, "sync word found at bit 8");
 		const auto inverted = digital::find_sync("0000111001001100011", "10110011");
 		check(inverted.size() == 1 && inverted[0].inverted, "inverted sync word found (180 degree ambiguity)");
-		check(digital::to_hex("0100100001101001") == "48 69" && digital::to_text("0100100001101001") == "Hi", "bits -> hex / text");
+		check(
+			digital::to_hex("0100100001101001") == "48 69" && digital::to_text("0100100001101001") == "Hi",
+			"bits -> hex / text"
+		);
 	}
 
 	void recovery() {
@@ -284,16 +400,24 @@ namespace {
 			const auto z = r.symbols[i];
 			tight += near(std::abs(z.real()), std::abs(z.imag()), 0.15 * std::abs(z)) ? 1 : 0; // on a diagonal
 		}
-		check(tight > r.symbols.size() * 0.45, "after locking, QPSK symbols sit on the diagonals", static_cast<double>(tight));
+		check(
+			tight > r.symbols.size() * 0.45,
+			"after locking, QPSK symbols sit on the diagonals",
+			static_cast<double>(tight)
+		);
 
 		// FSK round trip.
 		g.scheme = digital::Scheme::FSK;
 		g.frequency = 0;
 		g.symbol_rate = 100;
 		g.fsk_deviation = 500;
-		const Signal fsk = *generator::synthesize(g);
+		const Signal      fsk = *generator::synthesize(g);
 		const std::string bits = digital::decode_signal(fsk, digital::Scheme::FSK, { 100, 0.5 }, 0, fsk.duration());
-		check(bits.size() > 90 && bits.substr(2, 80) == repeated(g.bits + g.bits, 82).substr(2, 80), "FSK decodes", static_cast<double>(bits.size()));
+		check(
+			bits.size() > 90 && bits.substr(2, 80) == repeated(g.bits + g.bits, 82).substr(2, 80),
+			"FSK decodes",
+			static_cast<double>(bits.size())
+		);
 	}
 
 	void detection() {
@@ -301,10 +425,16 @@ namespace {
 		Signal s = tone(1000, 48'000, 2);
 		for (std::size_t i = 0; i < s.frames(); ++i) {
 			const double t = static_cast<double>(i) / 48'000;
-			if (!((t > 0.2 && t < 0.5) || (t > 1.2 && t < 1.3))) s.channels[0][i] *= 0.001f;
+			if (!((t > 0.2 && t < 0.5) || (t > 1.2 && t < 1.3))) {
+				s.channels[0][i] *= 0.001f;
+			}
 		}
 		const auto bursts = analysis::find_bursts(s, 20.0);
-		check(bursts.size() == 2 && near(bursts[0].begin, 0.2, 0.01) && near(bursts[1].end, 1.3, 0.01), "burst finder: 2 bursts at the right times", static_cast<double>(bursts.size()));
+		check(
+			bursts.size() == 2 && near(bursts[0].begin, 0.2, 0.01) && near(bursts[1].end, 1.3, 0.01),
+			"burst finder: 2 bursts at the right times",
+			static_cast<double>(bursts.size())
+		);
 
 		generator::Settings g;
 		g.source = generator::Source::Digital;
@@ -313,11 +443,15 @@ namespace {
 		g.symbol_rate = 1200;
 		g.seconds = 1;
 		g.bits = "1011001110001011000101";
-		for (const auto scheme : { digital::Scheme::OOK, digital::Scheme::BPSK, digital::Scheme::QPSK, digital::Scheme::FSK }) {
+		for (const auto scheme :
+		     { digital::Scheme::OOK, digital::Scheme::BPSK, digital::Scheme::QPSK, digital::Scheme::FSK }) {
 			g.scheme = scheme;
 			const auto guess = analysis::identify(*generator::synthesize(g), 0, 48'000);
-			check(guess.scheme == scheme && near(guess.symbol_rate, 1200, 25),
-				std::format("identify {}: {:.0f} baud", digital::name(scheme), guess.symbol_rate), guess.symbol_rate);
+			check(
+				guess.scheme == scheme && near(guess.symbol_rate, 1200, 25),
+				std::format("identify {}: {:.0f} baud", digital::name(scheme), guess.symbol_rate),
+				guess.symbol_rate
+			);
 		}
 
 		// On a carrier, in noise: the carrier is found too.
@@ -328,16 +462,22 @@ namespace {
 		g.add_noise = true;
 		g.snr_db = 14;
 		const auto guess = analysis::identify(*generator::synthesize(g), 0, 24'000);
-		check(guess.scheme == digital::Scheme::BPSK && near(guess.symbol_rate, 300, 10) && near(guess.center_hz, 1200, 5),
-			"identify BPSK in noise on a 1200 Hz carrier", guess.center_hz);
+		check(
+			guess.scheme == digital::Scheme::BPSK && near(guess.symbol_rate, 300, 10) && near(guess.center_hz, 1200, 5),
+			"identify BPSK in noise on a 1200 Hz carrier",
+			guess.center_hz
+		);
 	}
 
 	// The Guide's "message from space" puzzle, solved the way a user would: identify, shift to 0 Hz,
 	// receive with carrier and timing recovery, find the sync word, read the bytes.
 	void message_puzzle() {
 		std::string bits = "10101010101010101010101011001011";
-		for (const char c : std::string_view("RADIO"))
-			for (int b = 7; b >= 0; --b) bits += (c >> b) & 1 ? '1' : '0';
+		for (const char c : std::string_view("RADIO")) {
+			for (int b = 7; b >= 0; --b) {
+				bits += (c >> b) & 1 ? '1' : '0';
+			}
+		}
 		bits += "0000000000000000";
 		generator::Settings g;
 		g.source = generator::Source::Digital;
@@ -352,14 +492,16 @@ namespace {
 		g.snr_db = 14;
 		const Signal s = *generator::synthesize(g);
 
-		const auto id = analysis::identify(s, 0, 24'000);
-		const Signal baseband = *transform::shift_frequency(s, -id.center_hz);
-		const auto r = digital::recover(baseband, id.scheme, std::round(id.symbol_rate), 0, baseband.duration());
+		const auto        id = analysis::identify(s, 0, 24'000);
+		const Signal      baseband = *transform::shift_frequency(s, -id.center_hz);
+		const auto        r = digital::recover(baseband, id.scheme, std::round(id.symbol_rate), 0, baseband.duration());
 		const std::string decoded = digital::decode(id.scheme, r.symbols);
-		bool found = false;
+		bool              found = false;
 		for (const auto& m : digital::find_sync(decoded, "11001011")) {
 			std::string payload = decoded.substr(m.position + 8, 40);
-			if (m.inverted) payload = digital::invert(payload);
+			if (m.inverted) {
+				payload = digital::invert(payload);
+			}
 			found = found || digital::to_text(payload) == "RADIO";
 		}
 		check(found, "puzzle: the message from space decodes to RADIO");
@@ -381,10 +523,20 @@ namespace {
 
 		// A full-scale 1 kHz sine reads -3.0 LUFS (EBU Tech 3341 calibration).
 		const auto l = analysis::loudness(tone(1000, 48'000, 5), 0, 5 * 48'000);
-		check(l.integrated_lufs && near(*l.integrated_lufs, -3.01, 0.1), "loudness of a full-scale 1 kHz sine = -3 LUFS", l.integrated_lufs.value_or(0));
+		check(
+			l.integrated_lufs && near(*l.integrated_lufs, -3.01, 0.1),
+			"loudness of a full-scale 1 kHz sine = -3 LUFS",
+			l.integrated_lufs.value_or(0)
+		);
 		Signal clipped = tone(100);
-		for (float& v : clipped.channels[0]) v = std::clamp(v * 2.0f, -1.0f, 1.0f);
-		check(analysis::levels(clipped, 0, clipped.frames()).clipped > 1000, "clipping is counted", static_cast<double>(analysis::levels(clipped, 0, clipped.frames()).clipped));
+		for (float& v : clipped.channels[0]) {
+			v = std::clamp(v * 2.0f, -1.0f, 1.0f);
+		}
+		check(
+			analysis::levels(clipped, 0, clipped.frames()).clipped > 1000,
+			"clipping is counted",
+			static_cast<double>(analysis::levels(clipped, 0, clipped.frames()).clipped)
+		);
 	}
 
 	// ---- error correction (AFF3CT) -------------------------------------------------------------------------
@@ -392,15 +544,19 @@ namespace {
 	void error_correction() {
 		using namespace sig::coding;
 		const std::string text = "Hello from sig-viz! Polar codes repair the bits a noisy channel breaks, "
-			"and the interleaver spreads bursts of errors so that no codeword gets too many.";
-		const Bits message = text_to_bits(text);
+								 "and the interleaver spreads bursts of errors so that no codeword gets too many.";
+		const Bits        message = text_to_bits(text);
 		check(bits_to_text(message) == text, "text -> bits -> text");
 
 		for (const Decoder decoder : all_decoders) {
 			const CodeSpec code{ .decoder = decoder };
-			const auto tx = transmit(message, code, {});
-			const auto rx = receive(*tx, perfect_soft(tx->sent));
-			check(rx && rx->decoded == message, std::format("polar, {}: clean channel decodes exactly", name(decoder)), rx ? static_cast<double>(rx->decoded_errors) : -1);
+			const auto     tx = transmit(message, code, {});
+			const auto     rx = receive(*tx, perfect_soft(tx->sent));
+			check(
+				rx && rx->decoded == message,
+				std::format("polar, {}: clean channel decodes exactly", name(decoder)),
+				rx ? static_cast<double>(rx->decoded_errors) : -1
+			);
 		}
 
 		// A burst of 32 confident errors: too many for one codeword, fine once interleaved over 11.
@@ -408,51 +564,97 @@ namespace {
 		{
 			const auto tx = transmit(message, {}, { .kind = Interleaver::None });
 			const auto rx = receive(*tx, apply(perfect_soft(tx->sent), burst));
-			check(rx && rx->channel_errors == 32 && rx->frame_errors >= 1, "burst without interleaver: a codeword fails", rx ? static_cast<double>(rx->frame_errors) : -1);
+			check(
+				rx && rx->channel_errors == 32 && rx->frame_errors >= 1,
+				"burst without interleaver: a codeword fails",
+				rx ? static_cast<double>(rx->frame_errors) : -1
+			);
 		}
 		{
 			const auto tx = transmit(message, {}, { .kind = Interleaver::Block });
 			const auto rx = receive(*tx, apply(perfect_soft(tx->sent), burst));
-			check(tx->rows == static_cast<int>(tx->frames) && rx && rx->decoded_errors == 0, "burst with block interleaver: all repaired", rx ? static_cast<double>(rx->decoded_errors) : -1);
+			check(
+				tx->rows == static_cast<int>(tx->frames) && rx && rx->decoded_errors == 0,
+				"burst with block interleaver: all repaired",
+				rx ? static_cast<double>(rx->decoded_errors) : -1
+			);
 		}
 		{
 			const auto tx = transmit(message, {}, { .kind = Interleaver::Random, .seed = 3 });
-			auto soft = perfect_soft(tx->sent);
-			const auto rx = receive(*tx, apply(soft, { { Damage{ .pattern = Pattern::Random, .effect = Effect::Erase, .probability = 0.2f } } }));
-			check(rx && rx->erased > 400 && rx->decoded_errors == 0, "20 % erasures, random interleaver: all repaired", rx ? static_cast<double>(rx->erased) : -1);
+			auto       soft = perfect_soft(tx->sent);
+			const auto rx = receive(
+				*tx,
+				apply(soft, { { Damage{ .pattern = Pattern::Random, .effect = Effect::Erase, .probability = 0.2f } } })
+			);
+			check(
+				rx && rx->erased > 400 && rx->decoded_errors == 0,
+				"20 % erasures, random interleaver: all repaired",
+				rx ? static_cast<double>(rx->erased) : -1
+			);
 		}
 		{
-			const auto every = apply(perfect_soft(Bits(100, 0)), { { Damage{ .pattern = Pattern::EveryNth, .effect = Effect::Flip, .every = 10, .offset = 3 } } });
-			check(std::ranges::count_if(every, [](float v) { return v < 0.0f; }) == 10 && every[3] < 0.0f && every[13] < 0.0f, "damage: one bit every 10");
+			const auto every = apply(
+				perfect_soft(Bits(100, 0)),
+				{ { Damage{ .pattern = Pattern::EveryNth, .effect = Effect::Flip, .every = 10, .offset = 3 } } }
+			);
+			check(
+				std::ranges::count_if(every, [](float v) { return v < 0.0f; }) == 10 && every[3] < 0.0f &&
+					every[13] < 0.0f,
+				"damage: one bit every 10"
+			);
 		}
 		{
 			const auto uncoded = transmit(message, { .enabled = false }, { .kind = Interleaver::None });
 			const auto rx = receive(*uncoded, apply(perfect_soft(uncoded->sent), burst));
-			check(rx && rx->decoded_errors == 32, "without a code, the burst stays", rx ? static_cast<double>(rx->decoded_errors) : -1);
+			check(
+				rx && rx->decoded_errors == 32,
+				"without a code, the burst stays",
+				rx ? static_cast<double>(rx->decoded_errors) : -1
+			);
 		}
 		check(!transmit(message, { .crc = Crc::None }, {}), "CA-SCL without a CRC is refused");
 
 		// Error-rate curve: the code beats no code at 3 dB.
 		const auto curve = ber_curve({}, 3.0, 3.0, 1.0, 300, std::stop_source{}.get_token());
-		check(curve.size() == 1 && curve[0].ber < curve[0].uncoded / 10.0, "polar (256,128) at 3 dB: 10x fewer errors than no code", curve.empty() ? -1 : curve[0].ber);
+		check(
+			curve.size() == 1 && curve[0].ber < curve[0].uncoded / 10.0,
+			"polar (256,128) at 3 dB: 10x fewer errors than no code",
+			curve.empty() ? -1 : curve[0].ber
+		);
 
 		// Bits -> a real signal on a carrier -> noise -> soft bits -> decoded.
-		for (const auto& [scheme, snr] : { std::pair{ digital::Scheme::BPSK, -12.0f }, { digital::Scheme::QPSK, -9.0f }, { digital::Scheme::OOK, -6.0f }, { digital::Scheme::FSK, -6.0f } }) {
-			const auto tx = transmit(message, {}, {});
+		for (const auto& [scheme, snr] : { std::pair{ digital::Scheme::BPSK, -12.0f },
+		                                   { digital::Scheme::QPSK, -9.0f },
+		                                   { digital::Scheme::OOK, -6.0f },
+		                                   { digital::Scheme::FSK, -6.0f } }) {
+			const auto           tx = transmit(message, {}, {});
 			const link::Settings settings{ .scheme = scheme };
-			const auto signal = link::modulate(tx->sent, settings);
-			const auto noisy = transform::add_noise(*signal, snr, 5);
-			const auto soft = link::demodulate(*noisy, settings, tx->sent.size(), tx->sent);
-			const auto rx = receive(*tx, soft->soft);
-			check(rx && rx->decoded_errors == 0, std::format("{} on 2 kHz, SNR {:g} dB: decoded ({} channel errors)",
-				digital::name(scheme), snr, rx ? rx->channel_errors : 0), rx ? static_cast<double>(rx->decoded_errors) : -1);
+			const auto           signal = link::modulate(tx->sent, settings);
+			const auto           noisy = transform::add_noise(*signal, snr, 5);
+			const auto           soft = link::demodulate(*noisy, settings, tx->sent.size(), tx->sent);
+			const auto           rx = receive(*tx, soft->soft);
+			check(
+				rx && rx->decoded_errors == 0,
+				std::format(
+					"{} on 2 kHz, SNR {:g} dB: decoded ({} channel errors)",
+					digital::name(scheme),
+					snr,
+					rx ? rx->channel_errors : 0
+				),
+				rx ? static_cast<double>(rx->decoded_errors) : -1
+			);
 		}
 		{
-			const auto tx = transmit(message, {}, {});
+			const auto           tx = transmit(message, {}, {});
 			const link::Settings settings{ .follow = true };
-			const auto soft = link::demodulate(*link::modulate(tx->sent, settings), settings, tx->sent.size(), tx->sent);
+			const auto           soft =
+				link::demodulate(*link::modulate(tx->sent, settings), settings, tx->sent.size(), tx->sent);
 			const auto rx = receive(*tx, soft->soft);
-			check(rx && rx->decoded_errors == 0, "BPSK with carrier and timing recovery: decoded", rx ? static_cast<double>(rx->channel_errors) : -1);
+			check(
+				rx && rx->decoded_errors == 0,
+				"BPSK with carrier and timing recovery: decoded",
+				rx ? static_cast<double>(rx->channel_errors) : -1
+			);
 		}
 	}
 

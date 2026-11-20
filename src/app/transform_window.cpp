@@ -26,7 +26,7 @@ namespace recipe = sig::recipe;
 
 namespace {
 
-	constexpr double preview_delay = 0.25; // seconds the settings must rest before the preview is recomputed
+	constexpr double      preview_delay = 0.25; // seconds the settings must rest before the preview is recomputed
 	constexpr const char* result_label = "the Transform window's result";
 
 	// The recipe of `input` plus one more step.
@@ -40,27 +40,32 @@ namespace {
 
 const char* TransformWindow::explanation(Op op) {
 	switch (op) {
-	case Op::Gain:           return "Makes the signal louder or quieter. +6 dB doubles the amplitude.";
-	case Op::Normalize:      return "Scales the signal so its loudest sample reaches full scale (1.0).";
-	case Op::RemoveDc:       return "Subtracts the average, so the signal is centred on 0.";
-	case Op::AddNoise:       return "Adds random (Gaussian) noise. SNR = how much stronger the signal is than the noise.";
-	case Op::Filter:         return "Keeps some frequencies and removes others. Compare before and after below.";
-	case Op::ShiftFrequency: return "Moves every frequency up or down by the same amount (the result is I/Q). "
-		"Use it to bring a carrier down to 0 Hz before decoding.";
-	case Op::Resample:       return "Changes the sample rate. Going down, frequencies above half the new rate are removed first.";
-	case Op::ToIq:           return "Makes a real signal I/Q (Hilbert transform): Q is the signal shifted by 90 degrees.";
-	case Op::ToReal:         return "Keeps only I.";
-	case Op::AmDemodulate:   return "Recovers the message of an AM signal: its envelope (how loud it is over time).";
-	case Op::FmDemodulate:   return "Recovers the message of an FM signal: how its frequency changes over time.";
-	case Op::Trim:           return "Keeps only the selected part (shift + drag in the viewer to select).";
-	case Op::Combine:        return "Adds, subtracts or multiplies with another signal, sample by sample. "
-		"Multiplying a message with a carrier is modulation.";
+	case Op::Gain:      return "Makes the signal louder or quieter. +6 dB doubles the amplitude.";
+	case Op::Normalize: return "Scales the signal so its loudest sample reaches full scale (1.0).";
+	case Op::RemoveDc:  return "Subtracts the average, so the signal is centred on 0.";
+	case Op::AddNoise:  return "Adds random (Gaussian) noise. SNR = how much stronger the signal is than the noise.";
+	case Op::Filter:    return "Keeps some frequencies and removes others. Compare before and after below.";
+	case Op::ShiftFrequency:
+		return "Moves every frequency up or down by the same amount (the result is I/Q). "
+			   "Use it to bring a carrier down to 0 Hz before decoding.";
+	case Op::Resample:
+		return "Changes the sample rate. Going down, frequencies above half the new rate are removed first.";
+	case Op::ToIq:         return "Makes a real signal I/Q (Hilbert transform): Q is the signal shifted by 90 degrees.";
+	case Op::ToReal:       return "Keeps only I.";
+	case Op::AmDemodulate: return "Recovers the message of an AM signal: its envelope (how loud it is over time).";
+	case Op::FmDemodulate: return "Recovers the message of an FM signal: how its frequency changes over time.";
+	case Op::Trim:         return "Keeps only the selected part (shift + drag in the viewer to select).";
+	case Op::Combine:
+		return "Adds, subtracts or multiplies with another signal, sample by sample. "
+			   "Multiplying a message with a carrier is modulation.";
 	}
 	return "";
 }
 
 void TransformWindow::draw(Workspace& ws) {
-	if (!open) return;
+	if (!open) {
+		return;
+	}
 	ImGui::SetNextWindowSize({ 450.0f, 600.0f }, ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(title, &open)) {
 		ImGui::End();
@@ -70,7 +75,9 @@ void TransformWindow::draw(Workspace& ws) {
 	draw_lineage(ws);
 
 	ImGui::SetNextItemWidth(-FLT_MIN);
-	if (ui::enum_combo("##operation", step_.op, recipe::all_ops)) error_.clear();
+	if (ui::enum_combo("##operation", step_.op, recipe::all_ops)) {
+		error_.clear();
+	}
 	ui::hint(explanation(step_.op));
 	ImGui::Spacing();
 
@@ -93,7 +100,9 @@ void TransformWindow::draw_lineage(Workspace& ws) {
 	if (lineage.parent) {
 		ImGui::TextDisabled("Made from %s in %zu step(s).", ws.current->origin().name().c_str(), lineage.steps.size());
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Step back")) ws.select(lineage.parent);
+		if (ImGui::SmallButton("Step back")) {
+			ws.select(lineage.parent);
+		}
 		ui::explain("Shows the signal this one was made from (like undo; this one stays in the list).");
 	}
 	ImGui::Spacing();
@@ -103,49 +112,75 @@ void TransformWindow::draw_lineage(Workspace& ws) {
 
 void TransformWindow::draw_parameters(const Workspace& ws) {
 	const sig::Signal& signal = ws.signal();
-	const float nyquist = signal.sample_rate / 2.0f;
+	const float        nyquist = signal.sample_rate / 2.0f;
 	ImGui::PushItemWidth(ui::em(10.0f));
 
 	switch (step_.op) {
-	case Op::Gain:
-		ImGui::SliderFloat("Gain (dB)", &step_.gain_db, -60.0f, 60.0f, "%+.1f dB");
-		break;
+	case Op::Gain:     ImGui::SliderFloat("Gain (dB)", &step_.gain_db, -60.0f, 60.0f, "%+.1f dB"); break;
 	case Op::AddNoise: {
 		ImGui::SliderFloat("SNR (dB)", &step_.snr_db, -20.0f, 80.0f, "%.1f dB");
 		ui::help(tips::noise_snr);
 		int seed = static_cast<int>(step_.seed);
-		if (ImGui::InputInt("Seed", &seed)) step_.seed = static_cast<unsigned>(std::max(seed, 0));
+		if (ImGui::InputInt("Seed", &seed)) {
+			step_.seed = static_cast<unsigned>(std::max(seed, 0));
+		}
 		break;
 	}
 	case Op::Filter: {
 		ui::enum_combo("Type", step_.filter.type, transform::all_filter_types);
 		using enum transform::FilterType;
-		if (step_.filter.type != LowPass)  ImGui::SliderFloat("From (Hz)", &step_.filter.low_hz, 0.0f, nyquist, "%.0f Hz", ImGuiSliderFlags_Logarithmic);
-		if (step_.filter.type != HighPass) ImGui::SliderFloat("To (Hz)", &step_.filter.high_hz, 0.0f, nyquist, "%.0f Hz", ImGuiSliderFlags_Logarithmic);
+		if (step_.filter.type != LowPass) {
+			ImGui::SliderFloat(
+				"From (Hz)",
+				&step_.filter.low_hz,
+				0.0f,
+				nyquist,
+				"%.0f Hz",
+				ImGuiSliderFlags_Logarithmic
+			);
+		}
+		if (step_.filter.type != HighPass) {
+			ImGui::SliderFloat(
+				"To (Hz)",
+				&step_.filter.high_hz,
+				0.0f,
+				nyquist,
+				"%.0f Hz",
+				ImGuiSliderFlags_Logarithmic
+			);
+		}
 		ImGui::SliderInt("Taps", &step_.filter.taps, 3, 4001, "%d", ImGuiSliderFlags_Logarithmic);
 		ui::help(tips::taps);
 		break;
 	}
-	case Op::ShiftFrequency:
-		ImGui::SliderFloat("Shift (Hz)", &step_.shift_hz, -nyquist, nyquist, "%+.1f Hz");
-		break;
+	case Op::ShiftFrequency: ImGui::SliderFloat("Shift (Hz)", &step_.shift_hz, -nyquist, nyquist, "%+.1f Hz"); break;
 	case Op::Resample:
 		ImGui::InputFloat("New rate (Hz)", &step_.new_rate, 0.0f, 0.0f, "%.0f");
 		for (const float preset : { 8'000.0f, 16'000.0f, 44'100.0f, 48'000.0f }) {
-			if (ImGui::SmallButton(std::format("{:g}k", preset / 1000.0f).c_str())) step_.new_rate = preset;
+			if (ImGui::SmallButton(std::format("{:g}k", preset / 1000.0f).c_str())) {
+				step_.new_rate = preset;
+			}
 			ImGui::SameLine();
 		}
 		ImGui::NewLine();
 		break;
 	case Op::Trim:
-		if (ws.selection)
-			ImGui::Text("Keeps %s - %s", sig::format_seconds(ws.selection->begin).c_str(), sig::format_seconds(ws.selection->end).c_str());
-		else
+		if (ws.selection) {
+			ImGui::Text(
+				"Keeps %s - %s",
+				sig::format_seconds(ws.selection->begin).c_str(),
+				sig::format_seconds(ws.selection->end).c_str()
+			);
+		}
+		else {
 			ImGui::TextDisabled("Nothing selected yet.");
+		}
 		break;
 	case Op::Combine:
 		ui::enum_combo("Operation", step_.combine, transform::all_combines);
-		if (!other_) other_ = ws.current;
+		if (!other_) {
+			other_ = ws.current;
+		}
 		ui::track_combo("B", ws.library.tracks(), other_);
 		break;
 	case Op::Normalize:
@@ -153,8 +188,7 @@ void TransformWindow::draw_parameters(const Workspace& ws) {
 	case Op::ToIq:
 	case Op::ToReal:
 	case Op::AmDemodulate:
-	case Op::FmDemodulate:
-		break; // nothing to set
+	case Op::FmDemodulate: break; // nothing to set
 	}
 
 	ImGui::PopItemWidth();
@@ -187,7 +221,7 @@ void TransformWindow::update_preview(Workspace& ws) {
 		requested_ = Preview{ .input = wanted_input_, .step = wanted_step_ };
 		preview_job_.start([input = wanted_input_, step = wanted_step_](std::stop_token) -> std::optional<Preview> {
 			Preview preview{ .input = input, .step = step };
-			auto result = recipe::apply(input->signal(), step);
+			auto    result = recipe::apply(input->signal(), step);
 			if (!result) {
 				preview.error = result.error();
 				return preview;
@@ -199,7 +233,9 @@ void TransformWindow::update_preview(Workspace& ws) {
 		});
 	}
 
-	if (auto done = preview_job_.take()) preview_ = std::move(*done);
+	if (auto done = preview_job_.take()) {
+		preview_ = std::move(*done);
+	}
 
 	const bool current = preview_ && preview_->input == ws.current && preview_->step == wanted_step_;
 	if (apply_when_ready_ && current) {
@@ -210,7 +246,9 @@ void TransformWindow::update_preview(Workspace& ws) {
 	// A/B listening: swap what the viewer plays.
 	const bool ours = ws.audition && ws.audition->label == result_label;
 	if (hear_result_ && current && preview_->result) {
-		if (!ours || ws.audition->track != preview_->result) ws.audition = Audition{ ws.current, preview_->result, result_label };
+		if (!ours || ws.audition->track != preview_->result) {
+			ws.audition = Audition{ ws.current, preview_->result, result_label };
+		}
 	}
 	else if (ours && !(hear_result_ && preview_job_.busy())) {
 		ws.audition.reset();
@@ -232,21 +270,35 @@ void TransformWindow::draw_preview(Workspace& ws) {
 	ImGui::BeginDisabled(!can_run || apply_when_ready_);
 	if (ImGui::Button("Apply", { -FLT_MIN, 0.0f })) {
 		const bool ready = preview_ && preview_->input == ws.current && preview_->step == wanted_step_;
-		if (ready) keep_result(ws, *preview_);
-		else apply_when_ready_ = true; // as soon as the result is there
+		if (ready) {
+			keep_result(ws, *preview_);
+		}
+		else {
+			apply_when_ready_ = true; // as soon as the result is there
+		}
 	}
 	ImGui::EndDisabled();
 
 	const bool current = preview_ && preview_->input == ws.current && preview_->step == wanted_step_;
-	if (preview_job_.busy() || apply_when_ready_) ui::busy("computing");
-	else if (!error_.empty()) ui::error_text(error_);
-	else if (current && !preview_->error.empty()) ui::error_text(preview_->error);
-	else if (!can_run) ImGui::TextDisabled("Select a part first: shift + drag in the viewer.");
+	if (preview_job_.busy() || apply_when_ready_) {
+		ui::busy("computing");
+	}
+	else if (!error_.empty()) {
+		ui::error_text(error_);
+	}
+	else if (current && !preview_->error.empty()) {
+		ui::error_text(preview_->error);
+	}
+	else if (!can_run) {
+		ImGui::TextDisabled("Select a part first: shift + drag in the viewer.");
+	}
 
 	// A/B: hear the original or the result, switching back and forth to compare.
 	ImGui::TextUnformatted("Hear:");
 	ImGui::SameLine();
-	if (ImGui::RadioButton("Original (A)", !hear_result_)) hear_result_ = false;
+	if (ImGui::RadioButton("Original (A)", !hear_result_)) {
+		hear_result_ = false;
+	}
 	ImGui::SameLine();
 	ImGui::BeginDisabled(!(current && preview_->result));
 	if (ImGui::RadioButton("Result (B)", hear_result_)) {
@@ -273,25 +325,33 @@ void TransformWindow::draw_preview(Workspace& ws) {
 void TransformWindow::draw_before_after(const Workspace& ws) {
 	const auto spectrum_at = [&](const sig::Signal& signal, std::vector<float>& db, double& first_hz, double& bin_hz) {
 		constexpr std::size_t size = 4096;
-		sig::fft::Analyzer analyzer(size, sig::fft::Window::Blackman);
-		const auto centre = static_cast<std::size_t>(std::clamp(ws.playback.position * signal.sample_rate, 0.0, static_cast<double>(signal.frames())));
+		sig::fft::Analyzer    analyzer(size, sig::fft::Window::Blackman);
+		const auto            centre = static_cast<std::size_t>(
+			std::clamp(ws.playback.position * signal.sample_rate, 0.0, static_cast<double>(signal.frames()))
+		);
 		const std::size_t begin = centre > size / 2 ? centre - size / 2 : 0;
-		const auto spectrum = analyzer.average(signal, begin, std::min(begin + size, signal.frames()));
+		const auto        spectrum = analyzer.average(signal, begin, std::min(begin + size, signal.frames()));
 		db.resize(spectrum.power.size());
 		std::ranges::transform(spectrum.power, db.begin(), [](float p) { return static_cast<float>(sig::to_db(p)); });
 		first_hz = spectrum.first_hz + signal.center_hz;
 		bin_hz = spectrum.bin_hz;
 	};
 
-	const float height = std::clamp(ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() * 6.0f, ui::em(10.0f), ui::em(16.0f));
-	if (!ImPlot::BeginPlot("##before_after", { -1.0f, height })) return;
+	const float height = std::clamp(
+		ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() * 6.0f,
+		ui::em(10.0f),
+		ui::em(16.0f)
+	);
+	if (!ImPlot::BeginPlot("##before_after", { -1.0f, height })) {
+		return;
+	}
 	ImPlot::SetupAxes("Frequency (Hz)", "dBFS");
 	ImPlot::SetupAxisFormat(ImAxis_X1, plots::hz_formatter);
 	ImPlot::SetupAxisLimits(ImAxis_Y1, -140.0, 10.0, ImPlotCond_Once);
 	ImPlot::SetupLegend(ImPlotLocation_NorthEast);
 
 	std::vector<float> db;
-	double first_hz = 0.0, bin_hz = 1.0;
+	double             first_hz = 0.0, bin_hz = 1.0;
 	spectrum_at(ws.signal(), db, first_hz, bin_hz);
 	ImPlot::SetNextLineStyle({ 0.6f, 0.6f, 0.6f, 0.9f });
 	ImPlot::PlotLine("before", db.data(), static_cast<int>(db.size()), bin_hz, first_hz);
@@ -305,19 +365,22 @@ void TransformWindow::draw_before_after(const Workspace& ws) {
 
 // How much the filter lets through at each frequency (the FFT of its taps), and how much it delays.
 void TransformWindow::draw_filter_response(const sig::Signal& signal) const {
-	const std::vector<float> taps = transform::design_filter(step_.filter, signal.sample_rate);
+	const std::vector<float>       taps = transform::design_filter(step_.filter, signal.sample_rate);
 	std::vector<sig::fft::Complex> spectrum(std::max<std::size_t>(4096, std::bit_ceil(taps.size())));
 	std::ranges::copy(taps, spectrum.begin());
 	sig::fft::forward(spectrum);
 
-	const std::size_t bins = spectrum.size() / 2 + 1;
-	const double bin_hz = signal.sample_rate / static_cast<double>(spectrum.size());
+	const std::size_t  bins = spectrum.size() / 2 + 1;
+	const double       bin_hz = signal.sample_rate / static_cast<double>(spectrum.size());
 	std::vector<float> db(bins), phase(bins);
-	const double middle = static_cast<double>(taps.size() / 2);
+	const double       middle = static_cast<double>(taps.size() / 2);
 	for (std::size_t k = 0; k < bins; ++k) {
 		db[k] = static_cast<float>(sig::to_db(std::norm(spectrum[k])));
 		// Phase as applied: the filter runs centred (its delay of `middle` samples is undone), so remove it.
-		const auto undo_delay = std::polar(1.0f, static_cast<float>(sig::tau * static_cast<double>(k) * middle / static_cast<double>(spectrum.size())));
+		const auto undo_delay = std::polar(
+			1.0f,
+			static_cast<float>(sig::tau * static_cast<double>(k) * middle / static_cast<double>(spectrum.size()))
+		);
 		phase[k] = std::arg(spectrum[k] * undo_delay) * 180.0f / std::numbers::pi_v<float>;
 	}
 
@@ -338,10 +401,18 @@ void TransformWindow::draw_filter_response(const sig::Signal& signal) const {
 		ImPlot::PlotLine("##phase", phase.data(), static_cast<int>(bins), bin_hz);
 		ImPlot::EndPlot();
 	}
-	ui::hint(std::format("Delay: none. A filter like this (symmetric taps) delays every frequency by the same {} samples ({}); "
-		"the app takes that delay out, so the phase is 0 (or 180 where the gain dips through zero) and nothing shifts in time.",
-		taps.size() / 2, sig::format_seconds(middle / signal.sample_rate)).c_str());
-	if (signal.is_iq()) ui::hint("For I/Q signals the same response applies to negative frequencies.");
+	ui::hint(
+		std::format(
+			"Delay: none. A filter like this (symmetric taps) delays every frequency by the same {} samples ({}); "
+			"the app takes that delay out, so the phase is 0 (or 180 where the gain dips through zero) and nothing shifts in time.",
+			taps.size() / 2,
+			sig::format_seconds(middle / signal.sample_rate)
+		)
+			.c_str()
+	);
+	if (signal.is_iq()) {
+		ui::hint("For I/Q signals the same response applies to negative frequencies.");
+	}
 }
 
 // ---- recipes ---------------------------------------------------------------------------------------------
@@ -368,14 +439,18 @@ void TransformWindow::draw_recipe(Workspace& ws) {
 			recipe_status_ = out ? "Saved " + path->string() : "Could not write " + path->string();
 		}
 		else if (pending_ == Pending::Load) {
-			std::ifstream in(*path);
+			std::ifstream     in(*path);
 			const std::string text{ std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>() };
-			auto steps = recipe::from_text(text);
+			auto              steps = recipe::from_text(text);
 			if (steps) {
 				// Combine steps name their signal B; find it in the library.
-				for (recipe::Step& step : *steps)
-					if (step.op == Op::Combine)
-						if (const TrackPtr b = ws.library.find(step.other_name)) step.other = Track::shared_signal(b);
+				for (recipe::Step& step : *steps) {
+					if (step.op == Op::Combine) {
+						if (const TrackPtr b = ws.library.find(step.other_name)) {
+							step.other = Track::shared_signal(b);
+						}
+					}
+				}
 				loaded_recipe_ = std::move(*steps);
 				loaded_name_ = path->filename().string();
 				recipe_status_.clear();
@@ -388,16 +463,24 @@ void TransformWindow::draw_recipe(Workspace& ws) {
 		pending_ = Pending::None;
 	}
 
-	if (!ImGui::CollapsingHeader("Recipe")) return;
-	ui::hint("Every result remembers the steps that made it. Run them again on another signal, or save them for later.");
+	if (!ImGui::CollapsingHeader("Recipe")) {
+		return;
+	}
+	ui::hint(
+		"Every result remembers the steps that made it. Run them again on another signal, or save them for later."
+	);
 
 	const auto list = [](const std::vector<recipe::Step>& steps) {
-		for (std::size_t i = 0; i < steps.size(); ++i) ImGui::BulletText("%s", recipe::describe(steps[i]).c_str());
+		for (std::size_t i = 0; i < steps.size(); ++i) {
+			ImGui::BulletText("%s", recipe::describe(steps[i]).c_str());
+		}
 	};
 	const auto run = [&](const TrackPtr& target, const std::vector<recipe::Step>& steps) {
 		recipe_target_ = target;
 		recipe_steps_ = steps;
-		recipe_job_.start([target, steps](std::stop_token) -> std::optional<transform::Result> { return recipe::run(target->signal(), steps); });
+		recipe_job_.start([target, steps](std::stop_token) -> std::optional<transform::Result> {
+			return recipe::run(target->signal(), steps);
+		});
 	};
 
 	const std::vector<recipe::Step>& steps = ws.current->lineage().steps;
@@ -407,12 +490,16 @@ void TransformWindow::draw_recipe(Workspace& ws) {
 	else {
 		ImGui::Text("Steps from %s:", ws.current->origin().name().c_str());
 		list(steps);
-		if (!run_on_) run_on_ = ws.library.tracks().front();
+		if (!run_on_) {
+			run_on_ = ws.library.tracks().front();
+		}
 		ImGui::SetNextItemWidth(ui::em(14.0f));
 		ui::track_combo("##run_on", ws.library.tracks(), run_on_);
 		ImGui::SameLine();
 		ImGui::BeginDisabled(recipe_job_.busy());
-		if (ImGui::Button("Run on it")) run(run_on_, steps);
+		if (ImGui::Button("Run on it")) {
+			run(run_on_, steps);
+		}
 		ImGui::EndDisabled();
 		if (ImGui::Button("Save recipe...")) {
 			pending_ = Pending::Save;
@@ -429,10 +516,18 @@ void TransformWindow::draw_recipe(Workspace& ws) {
 		ImGui::SeparatorText(loaded_name_.c_str());
 		list(loaded_recipe_);
 		ImGui::BeginDisabled(recipe_job_.busy());
-		if (ImGui::Button("Run on the viewer's signal")) run(ws.current, loaded_recipe_);
+		if (ImGui::Button("Run on the viewer's signal")) {
+			run(ws.current, loaded_recipe_);
+		}
 		ImGui::EndDisabled();
 	}
-	if (recipe_job_.busy()) ui::busy("running");
-	if (recipe_failed_) ui::error_text(recipe_status_);
-	else if (!recipe_status_.empty()) ui::hint(recipe_status_.c_str());
+	if (recipe_job_.busy()) {
+		ui::busy("running");
+	}
+	if (recipe_failed_) {
+		ui::error_text(recipe_status_);
+	}
+	else if (!recipe_status_.empty()) {
+		ui::hint(recipe_status_.c_str());
+	}
 }

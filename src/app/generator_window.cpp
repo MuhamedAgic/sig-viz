@@ -14,7 +14,9 @@
 namespace gen = sig::generator;
 
 void GeneratorWindow::draw(Workspace& ws) {
-	if (!open) return;
+	if (!open) {
+		return;
+	}
 	ImGui::SetNextWindowSize({ 450.0f, 600.0f }, ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(title, &open)) {
 		ImGui::End();
@@ -24,8 +26,9 @@ void GeneratorWindow::draw(Workspace& ws) {
 	gen::Settings& s = settings_;
 	ImGui::PushItemWidth(ui::em(10.0f));
 
-	if (ui::enum_combo("Source", s.source, gen::all_sources) && s.source == gen::Source::Digital)
+	if (ui::enum_combo("Source", s.source, gen::all_sources) && s.source == gen::Source::Digital) {
 		s.frequency = 0.0f; // start at baseband, which the Digital window decodes directly
+	}
 	ImGui::Checkbox("I/Q (complex)", &s.iq);
 	ui::help(tips::iq);
 
@@ -43,8 +46,7 @@ void GeneratorWindow::draw(Workspace& ws) {
 		ui::enum_combo("Modulation", s.modulation, gen::all_modulations);
 		ui::help(tips::modulation);
 		switch (s.modulation) {
-		case gen::Modulation::None:
-			break;
+		case gen::Modulation::None: break;
 		case gen::Modulation::AM:
 			ImGui::SliderFloat("Message (Hz)", &s.message_hz, 0.1f, 1000.0f, "%.1f Hz", ImGuiSliderFlags_Logarithmic);
 			ImGui::SliderFloat("Depth", &s.am_depth, 0.0f, 1.0f, "%.2f");
@@ -91,7 +93,9 @@ void GeneratorWindow::draw(Workspace& ws) {
 		ImGui::SliderFloat("SNR (dB)", &s.snr_db, -20.0f, 80.0f, "%.1f dB");
 		ui::help(tips::noise_snr);
 		int seed = static_cast<int>(s.seed);
-		if (ImGui::InputInt("Seed", &seed)) s.seed = static_cast<unsigned>(seed);
+		if (ImGui::InputInt("Seed", &seed)) {
+			s.seed = static_cast<unsigned>(seed);
+		}
 	}
 	ImGui::PopItemWidth();
 

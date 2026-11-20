@@ -14,7 +14,9 @@
 namespace ui {
 
 	// Width in multiples of the font size, so layouts scale with the font.
-	[[nodiscard]] inline float em(float n) { return ImGui::GetFontSize() * n; }
+	[[nodiscard]] inline float em(float n) {
+		return ImGui::GetFontSize() * n;
+	}
 
 	// Drop-down for an enum that has a name() function, e.g. enum_combo("Window", window, fft::all_windows).
 	template <typename E>
@@ -43,7 +45,9 @@ namespace ui {
 					chosen = tracks[i];
 					changed = true;
 				}
-				if (is_selected) ImGui::SetItemDefaultFocus();
+				if (is_selected) {
+					ImGui::SetItemDefaultFocus();
+				}
 				ImGui::PopID();
 			}
 			ImGui::EndCombo();
@@ -73,7 +77,9 @@ namespace ui {
 	}
 
 	inline void error_text(const std::string& text) {
-		if (!text.empty()) ImGui::TextColored({ 1.0f, 0.45f, 0.45f, 1.0f }, "%s", text.c_str());
+		if (!text.empty()) {
+			ImGui::TextColored({ 1.0f, 0.45f, 0.45f, 1.0f }, "%s", text.c_str());
+		}
 	}
 
 	// Shows `text` in a tooltip while the previous item is hovered.

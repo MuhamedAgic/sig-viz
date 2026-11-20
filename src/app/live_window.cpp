@@ -17,11 +17,12 @@ namespace {
 
 	std::uint64_t next_live_id = 1;
 
-	constexpr std::size_t max_recorded = 200'000'000; // samples per channel (800 MB): then the recording stops by itself
+	constexpr std::size_t max_recorded =
+		200'000'000; // samples per channel (800 MB): then the recording stops by itself
 
 	std::string time_of_day() {
 		const std::time_t now = std::time(nullptr);
-		std::tm local{};
+		std::tm           local{};
 #if defined(_WIN32)
 		localtime_s(&local, &now);
 #else
@@ -35,7 +36,9 @@ namespace {
 void LiveWindow::start(Workspace& ws) {
 	error_.clear();
 	input_ = source_ == Source::Microphone ? open_microphone(error_) : open_rtl_tcp(radio_, error_);
-	if (!input_) return;
+	if (!input_) {
+		return;
+	}
 	i_.clear();
 	q_.clear();
 	live_id_ = next_live_id++;
@@ -45,7 +48,9 @@ void LiveWindow::start(Workspace& ws) {
 	// An empty live track to start with, shown right away.
 	sig::Signal signal{
 		.name = std::format("Live: {}", name(source_)),
-		.description = source_ == Source::Microphone ? "The microphone, live." : std::format("rtl_tcp at {}, live.", sig::format_hz(radio_.frequency_hz)),
+		.description = source_ == Source::Microphone
+		                   ? "The microphone, live."
+		                   : std::format("rtl_tcp at {}, live.", sig::format_hz(radio_.frequency_hz)),
 		.sample_rate = input_->sample_rate(),
 		.default_view_seconds = source_ == Source::Microphone ? 0.02f : 0.002f,
 		.layout = input_->iq() ? sig::Layout::IQ : sig::Layout::Real,
@@ -69,9 +74,13 @@ void LiveWindow::start_recording() {
 }
 
 void LiveWindow::finish_recording(Workspace& ws) {
-	if (!recording_) return;
+	if (!recording_) {
+		return;
+	}
 	recording_ = false;
-	if (recorded_i_.empty() || !input_) return;
+	if (recorded_i_.empty() || !input_) {
+		return;
+	}
 	sig::Signal signal{
 		.name = std::format("Recording {}", time_of_day()),
 		.description = "",
@@ -81,7 +90,9 @@ void LiveWindow::finish_recording(Workspace& ws) {
 		.channels = { std::move(recorded_i_) },
 		.center_hz = source_ == Source::Radio ? radio_.frequency_hz : 0.0,
 	};
-	if (input_->iq()) signal.channels.push_back(std::move(recorded_q_));
+	if (input_->iq()) {
+		signal.channels.push_back(std::move(recorded_q_));
+	}
 	signal.description = std::format("{} seconds recorded from the {}.", signal.duration(), name(source_));
 	ws.add_and_select(std::move(signal)); // in the viewer: Space plays it back
 	recorded_i_ = {};
@@ -103,7 +114,9 @@ void LiveWindow::update(Workspace& ws) {
 	if (recording_) {
 		const auto from = static_cast<std::ptrdiff_t>(before);
 		recorded_i_.insert(recorded_i_.end(), i_.begin() + from, i_.end());
-		if (!q_.empty()) recorded_q_.insert(recorded_q_.end(), q_.begin() + from, q_.end());
+		if (!q_.empty()) {
+			recorded_q_.insert(recorded_q_.end(), q_.begin() + from, q_.end());
+		}
 		if (recorded_i_.size() >= max_recorded) {
 			finish_recording(ws);
 			error_ = "The recording got too big and was stopped.";
@@ -115,17 +128,23 @@ void LiveWindow::update(Workspace& ws) {
 	if (i_.size() > keep) {
 		const auto drop = static_cast<std::ptrdiff_t>(i_.size() - keep);
 		i_.erase(i_.begin(), i_.begin() + drop);
-		if (!q_.empty()) q_.erase(q_.begin(), q_.begin() + drop);
+		if (!q_.empty()) {
+			q_.erase(q_.begin(), q_.begin() + drop);
+		}
 	}
 
 	// A new snapshot a few times a second: often enough to look live, rarely enough to stay cheap.
 	const auto interval = std::chrono::milliseconds(input_->iq() ? 250 : 100);
-	if (Clock::now() - last_update_ < interval || i_.empty()) return;
+	if (Clock::now() - last_update_ < interval || i_.empty()) {
+		return;
+	}
 	last_update_ = Clock::now();
 
 	sig::Signal signal = track_->signal();
 	signal.channels = { i_ };
-	if (input_->iq()) signal.channels.push_back(q_);
+	if (input_->iq()) {
+		signal.channels.push_back(q_);
+	}
 	TrackPtr update = make_track(std::move(signal), false, {}, live_id_);
 	ws.update_live(track_, update);
 	track_ = std::move(update);
@@ -137,8 +156,12 @@ void LiveWindow::update(Workspace& ws) {
 }
 
 void LiveWindow::draw(Workspace& ws) {
-	if (input_) update(ws); // also while the window is hidden
-	if (!open) return;
+	if (input_) {
+		update(ws); // also while the window is hidden
+	}
+	if (!open) {
+		return;
+	}
 	ImGui::SetNextWindowSize({ 450.0f, 400.0f }, ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(title, &open)) {
 		ImGui::End();
@@ -157,8 +180,11 @@ void LiveWindow::draw(Workspace& ws) {
 		int rate = static_cast<int>(radio_.sample_rate);
 		ImGui::SetNextItemWidth(ui::em(10.0f));
 		if (ImGui::BeginCombo("Sample rate", sig::format_hz(rate).c_str())) {
-			for (const int r : { 250'000, 1'024'000, 1'536'000, 2'048'000, 2'400'000 })
-				if (ImGui::Selectable(sig::format_hz(r).c_str(), r == rate)) radio_.sample_rate = static_cast<unsigned>(r);
+			for (const int r : { 250'000, 1'024'000, 1'536'000, 2'048'000, 2'400'000 }) {
+				if (ImGui::Selectable(sig::format_hz(r).c_str(), r == rate)) {
+					radio_.sample_rate = static_cast<unsigned>(r);
+				}
+			}
 			ImGui::EndCombo();
 		}
 		ImGui::SetNextItemWidth(ui::em(10.0f));
@@ -171,25 +197,33 @@ void LiveWindow::draw(Workspace& ws) {
 		ImGui::SetNextItemWidth(ui::em(10.0f));
 		if (ImGui::InputDouble("Frequency (MHz)", &mhz, 0.1, 1.0, "%.4f", ImGuiInputTextFlags_EnterReturnsTrue)) {
 			radio_.frequency_hz = mhz * 1e6;
-			if (input_) input_->tune(radio_.frequency_hz);
+			if (input_) {
+				input_->tune(radio_.frequency_hz);
+			}
 		}
 		ui::help(tips::rtl_tcp);
 	}
 
 	ImGui::SetNextItemWidth(ui::em(10.0f));
 	ImGui::SliderFloat("Keep", &keep_seconds_, 0.5f, 30.0f, "%.1f s", ImGuiSliderFlags_Logarithmic);
-	ui::help("How many of the newest seconds the live signal holds. Longer shows more history in the spectrogram, "
-		"but costs more memory and time.");
+	ui::help(
+		"How many of the newest seconds the live signal holds. Longer shows more history in the spectrogram, "
+		"but costs more memory and time."
+	);
 	ImGui::SameLine();
 	ImGui::Checkbox("Follow", &follow_);
 	ui::help("Keep the playhead at the newest samples, so the spectrum, tuner and decoder show what comes in now.");
 
 	if (!input_) {
-		if (ImGui::Button("Start", { ui::em(6.0f), 0.0f })) start(ws);
+		if (ImGui::Button("Start", { ui::em(6.0f), 0.0f })) {
+			start(ws);
+		}
 		ImGui::SameLine();
 		if (ImGui::Button("Record", { ui::em(6.0f), 0.0f })) {
 			start(ws);
-			if (input_) start_recording();
+			if (input_) {
+				start_recording();
+			}
 		}
 		ui::explain("Starts and records everything until you press Stop recording.");
 	}
@@ -200,15 +234,27 @@ void LiveWindow::draw(Workspace& ws) {
 		}
 		ImGui::SameLine();
 		if (!recording_) {
-			if (ImGui::Button("Record", { ui::em(6.0f), 0.0f })) start_recording();
+			if (ImGui::Button("Record", { ui::em(6.0f), 0.0f })) {
+				start_recording();
+			}
 			ui::explain("Records everything from now on (not only the newest seconds) until you press Stop recording.");
 		}
 		else {
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.75f, 0.15f, 0.15f, 1.0f });
-			const bool done = ImGui::Button(std::format("Stop recording ({:.1f} s)", static_cast<double>(recorded_i_.size()) / input_->sample_rate()).c_str());
+			const bool done = ImGui::Button(
+				std::format(
+					"Stop recording ({:.1f} s)",
+					static_cast<double>(recorded_i_.size()) / input_->sample_rate()
+				)
+					.c_str()
+			);
 			ImGui::PopStyleColor();
-			if (done) finish_recording(ws);
-			ui::explain("The recording becomes a signal in the list and is shown in the viewer: press Space to play it back.");
+			if (done) {
+				finish_recording(ws);
+			}
+			ui::explain(
+				"The recording becomes a signal in the list and is shown in the viewer: press Space to play it back."
+			);
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Keep a copy") && track_) {
@@ -217,17 +263,24 @@ void LiveWindow::draw(Workspace& ws) {
 			copy.description = std::format("{} seconds of {}.", copy.duration(), name(source_));
 			ws.library.add(std::move(copy));
 		}
-		ui::explain("Adds what the live signal holds now to the list, as a normal signal you can save or analyse at rest.");
+		ui::explain(
+			"Adds what the live signal holds now to the list, as a normal signal you can save or analyse at rest."
+		);
 		if (input_) {
 			const double seconds = std::chrono::duration<double>(Clock::now() - started_).count();
-			ImGui::TextDisabled("Receiving %s samples per second.", sig::format_hz(seconds > 0.5 ? received_ / seconds : 0.0).c_str());
+			ImGui::TextDisabled(
+				"Receiving %s samples per second.",
+				sig::format_hz(seconds > 0.5 ? received_ / seconds : 0.0).c_str()
+			);
 		}
 	}
 	ui::error_text(error_);
 	if (!input_ && error_.empty()) {
-		ui::hint(source_ == Source::Microphone
-			? "Start shows the microphone live in every window. Whistle and watch the spectrogram, or sing to the tuner (Audio window)."
-			: "Needs an RTL-SDR stick and its rtl_tcp program running (on this or another computer).");
+		ui::hint(
+			source_ == Source::Microphone
+				? "Start shows the microphone live in every window. Whistle and watch the spectrogram, or sing to the tuner (Audio window)."
+				: "Needs an RTL-SDR stick and its rtl_tcp program running (on this or another computer)."
+		);
 	}
 
 	ImGui::End();

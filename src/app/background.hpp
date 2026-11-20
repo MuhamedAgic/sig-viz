@@ -27,7 +27,9 @@ public:
 	using Work = std::function<std::optional<T>(std::stop_token)>;
 
 	Background() = default;
-	~Background() { cancel(); } // the threads join when the jobs are destroyed
+	~Background() {
+		cancel();
+	} // the threads join when the jobs are destroyed
 
 	Background(const Background&) = delete;
 	Background& operator=(const Background&) = delete;
@@ -46,18 +48,24 @@ public:
 
 	// Stops waiting for the running job (if any).
 	void cancel() {
-		if (!current_) return;
+		if (!current_) {
+			return;
+		}
 		current_->thread.request_stop();
 		retired_.push_back(std::move(*current_));
 		current_.reset();
 	}
 
-	[[nodiscard]] bool busy() const { return current_ && !current_->state->done; }
+	[[nodiscard]] bool busy() const {
+		return current_ && !current_->state->done;
+	}
 
 	// The finished job's result, once. std::nullopt while it is still running (or when it gave none).
 	[[nodiscard]] std::optional<T> take() {
 		std::erase_if(retired_, [](const Job& job) { return job.state->done.load(); });
-		if (!current_ || !current_->state->done) return std::nullopt;
+		if (!current_ || !current_->state->done) {
+			return std::nullopt;
+		}
 		std::optional<T> result = std::move(current_->state->result);
 		current_.reset();
 		return result;

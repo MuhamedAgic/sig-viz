@@ -61,20 +61,28 @@ namespace sig::coding {
 		std::unreachable();
 	}
 
-	[[nodiscard]] constexpr int crc_bits(Crc crc) { return crc == Crc::Crc8 ? 8 : crc == Crc::Crc16 ? 16 : 0; }
+	[[nodiscard]] constexpr int crc_bits(Crc crc) {
+		return crc == Crc::Crc8 ? 8 : crc == Crc::Crc16 ? 16 : 0;
+	}
 
 	struct CodeSpec {
-		bool    enabled = true;  // false: send the message bits as they are (to compare)
-		int     n_log2 = 8;      // codeword length N = 2^n_log2 (polar codes come in powers of two)
-		int     k = 128;         // bits of each codeword that carry information (CRC included); the rest is redundancy
+		bool    enabled = true; // false: send the message bits as they are (to compare)
+		int     n_log2 = 8;     // codeword length N = 2^n_log2 (polar codes come in powers of two)
+		int     k = 128;        // bits of each codeword that carry information (CRC included); the rest is redundancy
 		Crc     crc = Crc::Crc8;
 		Decoder decoder = Decoder::CA_SCL;
-		int     list_size = 8;   // L, for the list decoders
+		int     list_size = 8;    // L, for the list decoders
 		float   design_db = 2.0f; // the Eb/N0 the code is tuned for (picks which bit positions are frozen)
 
-		[[nodiscard]] int n() const { return 1 << n_log2; }
-		[[nodiscard]] int message_bits() const { return k - crc_bits(crc); } // per codeword
-		[[nodiscard]] double rate() const { return enabled ? static_cast<double>(message_bits()) / n() : 1.0; }
+		[[nodiscard]] int n() const {
+			return 1 << n_log2;
+		}
+		[[nodiscard]] int message_bits() const {
+			return k - crc_bits(crc);
+		} // per codeword
+		[[nodiscard]] double rate() const {
+			return enabled ? static_cast<double>(message_bits()) / n() : 1.0;
+		}
 
 		bool operator==(const CodeSpec&) const = default;
 	};
@@ -113,26 +121,30 @@ namespace sig::coding {
 	struct Transmission {
 		CodeSpec        code;
 		InterleaverSpec interleaver;
-		Bits            message;   // as given
-		Bits            codewords; // after encoding, before interleaving: codeword after codeword
-		Bits            sent;      // after interleaving: what goes on the air
+		Bits            message;        // as given
+		Bits            codewords;      // after encoding, before interleaving: codeword after codeword
+		Bits            sent;           // after interleaving: what goes on the air
 		std::size_t     frames = 0;     // codewords
 		std::size_t     frame_size = 0; // N (or the message length, without coding)
 		int             rows = 1;       // the block interleaver's table: rows x (sent.size() / rows)
 	};
 
-	[[nodiscard]] std::expected<Transmission, std::string> transmit(Bits message, const CodeSpec& code, const InterleaverSpec& interleaver);
+	[[nodiscard]] std::expected<Transmission, std::string> transmit(
+		Bits                   message,
+		const CodeSpec&        code,
+		const InterleaverSpec& interleaver
+	);
 
 	// The soft bits a perfect channel would deliver: +1 for every 0, -1 for every 1.
 	[[nodiscard]] std::vector<float> perfect_soft(std::span<const std::uint8_t> bits);
 
 	struct Reception {
-		std::vector<float> soft;          // as received (air order)
-		std::vector<float> deinterleaved; // codeword order
-		Bits               received;      // hard decisions before decoding, codeword order
-		Bits               decoded;       // the message bits, after decoding
-		std::vector<bool>  frame_wrong;   // per codeword: decoded message bits differ from what was sent
-		std::vector<bool>  crc_failed;    // per codeword: the CRC says decoding failed (empty without CRC)
+		std::vector<float> soft;               // as received (air order)
+		std::vector<float> deinterleaved;      // codeword order
+		Bits               received;           // hard decisions before decoding, codeword order
+		Bits               decoded;            // the message bits, after decoding
+		std::vector<bool>  frame_wrong;        // per codeword: decoded message bits differ from what was sent
+		std::vector<bool>  crc_failed;         // per codeword: the CRC says decoding failed (empty without CRC)
 		std::size_t        channel_errors = 0; // bits wrong before decoding
 		std::size_t        erased = 0;         // soft bits that were exactly 0
 		std::size_t        decoded_errors = 0; // message bits wrong after decoding
@@ -188,7 +200,7 @@ namespace sig::coding {
 		int      offset = 0;          // EveryNth: the first one hit
 		int      burst_start = 100;   // Burst
 		int      burst_length = 32;
-		float    sigma = 0.5f;        // Noise: standard deviation (the soft bits are +-1)
+		float    sigma = 0.5f; // Noise: standard deviation (the soft bits are +-1)
 		unsigned seed = 1;
 
 		bool operator==(const Damage&) const = default;
@@ -206,20 +218,26 @@ namespace sig::coding {
 	// spends energy on redundancy is compared fairly with sending the bits as they are.
 	struct CurvePoint {
 		double eb_n0_db = 0.0;
-		double ber = 0.0;      // message bits wrong / sent
-		double fer = 0.0;      // codewords wrong / sent
-		double uncoded = 0.0;  // BPSK without any code, in theory
+		double ber = 0.0;     // message bits wrong / sent
+		double fer = 0.0;     // codewords wrong / sent
+		double uncoded = 0.0; // BPSK without any code, in theory
 	};
 
 	// Simulates `frames` codewords per point (fewer once enough errors are seen). Empty if stopped.
-	[[nodiscard]] std::vector<CurvePoint> ber_curve(const CodeSpec& code, double from_db, double to_db, double step_db,
-		std::size_t frames, std::stop_token stop);
+	[[nodiscard]] std::vector<CurvePoint> ber_curve(
+		const CodeSpec& code,
+		double          from_db,
+		double          to_db,
+		double          step_db,
+		std::size_t     frames,
+		std::stop_token stop
+	);
 
 	// ---- text <-> bits -----------------------------------------------------------------------------------------
 
-	[[nodiscard]] Bits text_to_bits(std::string_view text); // 8 bits per character, most significant first
+	[[nodiscard]] Bits        text_to_bits(std::string_view text); // 8 bits per character, most significant first
 	[[nodiscard]] std::string bits_to_text(std::span<const std::uint8_t> bits); // unprintable -> '.'
-	[[nodiscard]] Bits random_bits(std::size_t count, unsigned seed);
+	[[nodiscard]] Bits        random_bits(std::size_t count, unsigned seed);
 	[[nodiscard]] std::string to_string(std::span<const std::uint8_t> bits); // "0110..."
 
 } // namespace sig::coding

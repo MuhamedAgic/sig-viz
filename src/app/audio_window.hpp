@@ -15,7 +15,7 @@
 class AudioWindow {
 public:
 	static constexpr const char* title = "Audio";
-	bool open = true;
+	bool                         open = true;
 
 	void draw(Workspace& ws);
 
@@ -24,15 +24,15 @@ private:
 	struct Overview {
 		TrackPtr                track;
 		std::vector<double>     pitch_times;
-		std::vector<double>     pitch_hz;  // NaN where there is no clear note
+		std::vector<double>     pitch_hz; // NaN where there is no clear note
 		sig::analysis::Loudness loudness;
 		std::size_t             clipped = 0;
 		double                  peak = 0.0;
 	};
 
-	void draw_tuner(Workspace& ws);
-	void draw_loudness(const Workspace& ws);
-	void draw_levels(const Workspace& ws);
+	void                          draw_tuner(Workspace& ws);
+	void                          draw_loudness(const Workspace& ws);
+	void                          draw_levels(const Workspace& ws);
 	[[nodiscard]] static Overview analyse(const TrackPtr& track, std::stop_token stop);
 
 	TrackPtr             requested_;

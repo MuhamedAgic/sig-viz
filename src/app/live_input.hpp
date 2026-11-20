@@ -16,9 +16,10 @@ class LiveInput {
 public:
 	virtual ~LiveInput() = default;
 
-	[[nodiscard]] virtual bool  iq() const = 0;          // radio: I/Q; microphone: real
+	[[nodiscard]] virtual bool  iq() const = 0; // radio: I/Q; microphone: real
 	[[nodiscard]] virtual float sample_rate() const = 0;
-	virtual void tune(double /*hz*/) {}                   // radio: change the frequency while running
+	virtual void                tune(double /*hz*/) {
+	} // radio: change the frequency while running
 
 	// Moves the samples that arrived since the last call to the end of `i` (and `q`, for I/Q).
 	void take(std::vector<float>& i, std::vector<float>& q) {
@@ -39,9 +40,13 @@ protected:
 	// For the source's thread.
 	void push(const float* i, const float* q, std::size_t count) {
 		const std::lock_guard lock(mutex_);
-		if (i_.size() > 50'000'000) return; // the UI stopped taking: drop rather than eat all memory
+		if (i_.size() > 50'000'000) {
+			return; // the UI stopped taking: drop rather than eat all memory
+		}
 		i_.insert(i_.end(), i, i + count);
-		if (q) q_.insert(q_.end(), q, q + count);
+		if (q) {
+			q_.insert(q_.end(), q, q + count);
+		}
 	}
 
 	void fail(std::string message) {

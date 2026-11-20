@@ -24,7 +24,7 @@
 class SpectrogramWindow {
 public:
 	static constexpr const char* title = "Spectrogram";
-	bool open = true;
+	bool                         open = true;
 
 	void draw(Workspace& ws);
 
@@ -33,14 +33,14 @@ private:
 		TrackPtr         track;
 		int              size_log2 = 10; // FFT size 2^10 = 1024
 		sig::fft::Window window = sig::fft::Window::Hann;
-		bool operator==(const AnalysisSettings&) const = default;
+		bool             operator==(const AnalysisSettings&) const = default;
 	};
 
 	struct ColorSettings {
 		float          floor_db = -100.0f;
 		float          ceiling_db = 0.0f;
 		ImPlotColormap colormap = ImPlotColormap_Viridis;
-		bool operator==(const ColorSettings&) const = default;
+		bool           operator==(const ColorSettings&) const = default;
 	};
 
 	// The analysis result: `columns` blocks along time, `bins` frequencies each; db[column * bins + bin].
@@ -59,12 +59,12 @@ private:
 		double low_hz = 0.0, high_hz = 0.0;
 	};
 
-	void draw_settings();
-	void draw_plot(Workspace& ws);
-	void handle_band_picking(const Workspace& ws);
-	void draw_band_tools(Workspace& ws);
+	void                                     draw_settings();
+	void                                     draw_plot(Workspace& ws);
+	void                                     handle_band_picking(const Workspace& ws);
+	void                                     draw_band_tools(Workspace& ws);
 	[[nodiscard]] static std::optional<Grid> analyse(const AnalysisSettings& settings, std::stop_token stop);
-	void colorize();
+	void                                     colorize();
 
 	AnalysisSettings analysis_settings_, requested_; // requested_: what the grid is (being) computed from
 	ColorSettings    color_settings_, colorized_;
@@ -74,12 +74,12 @@ private:
 	bool             refit_ = true;
 	bool             refit_when_ready_ = false;
 
-	std::optional<Band>          band_;
-	bool                         picking_ = false; // shift + drag in progress
-	ImPlotPoint                  pick_start_{};
-	Background<sig::Signal>      band_job_;        // extracting or isolating the band
-	bool                         band_job_is_listen_ = false;
-	std::string                  band_error_;
+	std::optional<Band>     band_;
+	bool                    picking_ = false; // shift + drag in progress
+	ImPlotPoint             pick_start_{};
+	Background<sig::Signal> band_job_; // extracting or isolating the band
+	bool                    band_job_is_listen_ = false;
+	std::string             band_error_;
 
 	PlotExport export_;
 };

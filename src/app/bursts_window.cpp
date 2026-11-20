@@ -7,7 +7,9 @@
 #include "core/units.hpp"
 
 void BurstsWindow::draw(Workspace& ws) {
-	if (!open) return;
+	if (!open) {
+		return;
+	}
 	ImGui::SetNextWindowSize({ 450.0f, 400.0f }, ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(title, &open)) {
 		ImGui::End();
@@ -23,7 +25,9 @@ void BurstsWindow::draw(Workspace& ws) {
 			return std::optional{ sig::analysis::find_bursts(track->signal(), threshold) };
 		});
 	}
-	if (auto found = job_.take()) bursts_ = std::move(*found);
+	if (auto found = job_.take()) {
+		bursts_ = std::move(*found);
+	}
 
 	ImGui::SetNextItemWidth(ui::em(10.0f));
 	ImGui::SliderFloat("Above the floor", &threshold_db_, 3.0f, 40.0f, "%.0f dB");
@@ -58,7 +62,11 @@ void BurstsWindow::draw(Workspace& ws) {
 		}
 	}
 
-	if (ImGui::BeginTable("##bursts", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {
+	if (ImGui::BeginTable(
+			"##bursts",
+			4,
+			ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp
+		)) {
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableSetupColumn("#");
 		ImGui::TableSetupColumn("Starts");
@@ -71,7 +79,8 @@ void BurstsWindow::draw(Workspace& ws) {
 		while (clipper.Step()) {
 			for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
 				const auto& burst = bursts_[static_cast<std::size_t>(i)];
-				const bool selected = ws.selection && ws.selection->begin == burst.begin && ws.selection->end == burst.end;
+				const bool  selected =
+					ws.selection && ws.selection->begin == burst.begin && ws.selection->end == burst.end;
 				ImGui::TableNextColumn();
 				if (ImGui::Selectable(std::to_string(i + 1).c_str(), selected, ImGuiSelectableFlags_SpanAllColumns)) {
 					ws.selection = TimeRange{ burst.begin, burst.end };

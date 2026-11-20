@@ -19,7 +19,7 @@
 class SpectrumWindow {
 public:
 	static constexpr const char* title = "Spectrum";
-	bool open = true;
+	bool                         open = true;
 
 	void draw(Workspace& ws);
 
@@ -42,7 +42,7 @@ private:
 		std::size_t      end = 0;
 		std::size_t      size = 0;
 		sig::fft::Window window = sig::fft::Window::Hann;
-		bool operator==(const Inputs&) const = default;
+		bool             operator==(const Inputs&) const = default;
 	};
 
 	// A trace to plot: dB per bin, from `first_hz` (on the dial) every `bin_hz`.
@@ -55,11 +55,11 @@ private:
 		[[nodiscard]] float db_at(double hz) const; // interpolated between bins
 	};
 
-	void draw_settings(const Workspace& ws);
-	void analyse(const Workspace& ws, const Inputs& inputs);
-	void draw_plot(Workspace& ws);
-	void draw_measurements(const sig::Signal& signal) const;
-	void draw_markers(Workspace& ws);
+	void                 draw_settings(const Workspace& ws);
+	void                 analyse(const Workspace& ws, const Inputs& inputs);
+	void                 draw_plot(Workspace& ws);
+	void                 draw_measurements(const sig::Signal& signal) const;
+	void                 draw_markers(Workspace& ws);
 	[[nodiscard]] double snap_to_peak(double hz) const;
 
 	// Settings

@@ -20,51 +20,73 @@ namespace coding = sig::coding;
 
 namespace {
 
-	constexpr ImU32 ok_color = IM_COL32(70, 75, 90, 255);
-	constexpr ImU32 wrong_color = IM_COL32(255, 80, 70, 255);
-	constexpr ImU32 erased_color = IM_COL32(250, 200, 60, 255);
-	constexpr ImU32 good_frame_color = IM_COL32(80, 200, 110, 255);
+	constexpr ImU32  ok_color = IM_COL32(70, 75, 90, 255);
+	constexpr ImU32  wrong_color = IM_COL32(255, 80, 70, 255);
+	constexpr ImU32  erased_color = IM_COL32(250, 200, 60, 255);
+	constexpr ImU32  good_frame_color = IM_COL32(80, 200, 110, 255);
 	constexpr ImVec4 good_text{ 0.5f, 0.9f, 0.5f, 1.0f };
 	constexpr ImVec4 bad_text{ 1.0f, 0.45f, 0.45f, 1.0f };
 
 	std::string describe(const coding::CodeSpec& code) {
-		if (!code.enabled) return "no code";
+		if (!code.enabled) {
+			return "no code";
+		}
 		std::string text = std::format("polar ({}, {}) {}", code.n(), code.k, coding::name(code.decoder));
-		if (code.decoder != coding::Decoder::SC) text += std::format(" L={}", code.list_size);
-		if (code.crc != coding::Crc::None) text += std::format(", CRC {}", coding::crc_bits(code.crc));
+		if (code.decoder != coding::Decoder::SC) {
+			text += std::format(" L={}", code.list_size);
+		}
+		if (code.crc != coding::Crc::None) {
+			text += std::format(", CRC {}", coding::crc_bits(code.crc));
+		}
 		return text;
 	}
 
-	double percent(std::size_t part, std::size_t whole) { return whole ? 100.0 * static_cast<double>(part) / static_cast<double>(whole) : 0.0; }
+	double percent(std::size_t part, std::size_t whole) {
+		return whole ? 100.0 * static_cast<double>(part) / static_cast<double>(whole) : 0.0;
+	}
 
 	// One small square per bit, `columns` per row; rows that scroll out of view are not drawn.
 	// row_marker: a colour strip left of each row (or 0 for none).
-	void bit_grid(const char* id, std::size_t count, std::size_t columns, const std::function<ImU32(std::size_t)>& color,
-		const std::function<ImU32(std::size_t)>& row_marker) {
-		if (count == 0 || columns == 0) return;
+	void bit_grid(
+		const char*                              id,
+		std::size_t                              count,
+		std::size_t                              columns,
+		const std::function<ImU32(std::size_t)>& color,
+		const std::function<ImU32(std::size_t)>& row_marker
+	) {
+		if (count == 0 || columns == 0) {
+			return;
+		}
 		const std::size_t rows = (count + columns - 1) / columns;
-		const float marker = row_marker ? ui::em(0.6f) : 0.0f;
-		const float width = ImGui::GetContentRegionAvail().x - marker - ImGui::GetStyle().ScrollbarSize;
-		const float cell = std::clamp(width / static_cast<float>(columns), 1.0f, ui::em(0.8f));
-		const float row_height = std::max(cell, 3.0f);
-		const float height = std::min(ui::em(12.0f), row_height * static_cast<float>(rows) + 4.0f);
+		const float       marker = row_marker ? ui::em(0.6f) : 0.0f;
+		const float       width = ImGui::GetContentRegionAvail().x - marker - ImGui::GetStyle().ScrollbarSize;
+		const float       cell = std::clamp(width / static_cast<float>(columns), 1.0f, ui::em(0.8f));
+		const float       row_height = std::max(cell, 3.0f);
+		const float       height = std::min(ui::em(12.0f), row_height * static_cast<float>(rows) + 4.0f);
 
 		ImGui::BeginChild(id, { 0.0f, height }, false);
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.0f, 0.0f }); // rows exactly row_height apart (the clipper relies on it)
-		ImDrawList* draw = ImGui::GetWindowDrawList();
+		ImGui::PushStyleVar(
+			ImGuiStyleVar_ItemSpacing,
+			{ 0.0f, 0.0f }
+		); // rows exactly row_height apart (the clipper relies on it)
+		ImDrawList*      draw = ImGui::GetWindowDrawList();
 		ImGuiListClipper clipper;
 		clipper.Begin(static_cast<int>(rows), row_height);
 		while (clipper.Step()) {
 			for (int r = clipper.DisplayStart; r < clipper.DisplayEnd; ++r) {
 				const ImVec2 origin = ImGui::GetCursorScreenPos();
-				const auto row = static_cast<std::size_t>(r);
+				const auto   row = static_cast<std::size_t>(r);
 				if (row_marker) {
-					if (const ImU32 c = row_marker(row)) draw->AddRectFilled(origin, { origin.x + marker * 0.7f, origin.y + row_height - 1.0f }, c);
+					if (const ImU32 c = row_marker(row)) {
+						draw->AddRectFilled(origin, { origin.x + marker * 0.7f, origin.y + row_height - 1.0f }, c);
+					}
 				}
 				const float gap = cell >= 4.0f ? 1.0f : 0.0f;
 				for (std::size_t c = 0; c < columns; ++c) {
 					const std::size_t i = row * columns + c;
-					if (i >= count) break;
+					if (i >= count) {
+						break;
+					}
 					const float x = origin.x + marker + static_cast<float>(c) * cell;
 					draw->AddRectFilled({ x, origin.y }, { x + cell - gap, origin.y + row_height - gap }, color(i));
 				}
@@ -77,7 +99,7 @@ namespace {
 
 	void legend_square(ImU32 color, const char* label) {
 		const ImVec2 p = ImGui::GetCursorScreenPos();
-		const float s = ImGui::GetTextLineHeight() * 0.7f;
+		const float  s = ImGui::GetTextLineHeight() * 0.7f;
 		ImGui::GetWindowDrawList()->AddRectFilled({ p.x, p.y + s * 0.2f }, { p.x + s, p.y + s * 1.2f }, color);
 		ImGui::Dummy({ s, s });
 		ImGui::SameLine();
@@ -105,8 +127,10 @@ CodingWindow::Inputs CodingWindow::inputs(const Workspace& ws) const {
 }
 
 CodingWindow::Outcome CodingWindow::run(Inputs in) {
-	Outcome out;
-	coding::Bits message = in.source == MessageSource::Text ? coding::text_to_bits(in.text) : coding::random_bits(static_cast<std::size_t>(in.random_bits), in.seed);
+	Outcome      out;
+	coding::Bits message = in.source == MessageSource::Text
+	                           ? coding::text_to_bits(in.text)
+	                           : coding::random_bits(static_cast<std::size_t>(in.random_bits), in.seed);
 
 	auto tx = coding::transmit(message, in.code, in.interleaver);
 	if (!tx) {
@@ -131,13 +155,19 @@ CodingWindow::Outcome CodingWindow::run(Inputs in) {
 	}
 
 	auto rx = coding::receive(*tx, coding::apply(std::move(soft), in.damage));
-	if (!rx) out.error = rx.error();
-	else out.rx = std::move(*rx);
+	if (!rx) {
+		out.error = rx.error();
+	}
+	else {
+		out.rx = std::move(*rx);
+	}
 
 	// The same damage on the bare message, to show what the code bought.
 	if (in.code.enabled && in.channel == Channel::Bits) {
 		if (auto bare = coding::transmit(message, { .enabled = false }, { .kind = coding::Interleaver::None })) {
-			if (auto plain = coding::receive(*bare, coding::apply(coding::perfect_soft(bare->sent), in.damage))) out.uncoded = std::move(*plain);
+			if (auto plain = coding::receive(*bare, coding::apply(coding::perfect_soft(bare->sent), in.damage))) {
+				out.uncoded = std::move(*plain);
+			}
 		}
 	}
 	out.tx = std::move(*tx);
@@ -148,12 +178,18 @@ CodingWindow::Outcome CodingWindow::run(Inputs in) {
 // ---- window -----------------------------------------------------------------------------------------------------
 
 void CodingWindow::draw(Workspace& ws) {
-	if (auto result = job_.take()) outcome_ = std::move(*result);
+	if (auto result = job_.take()) {
+		outcome_ = std::move(*result);
+	}
 	if (auto points = curve_job_.take()) {
 		curves_.push_back({ curve_label_, std::move(*points) });
-		if (curves_.size() > 6) curves_.erase(curves_.begin());
+		if (curves_.size() > 6) {
+			curves_.erase(curves_.begin());
+		}
 	}
-	if (!open) return;
+	if (!open) {
+		return;
+	}
 
 	ImGui::SetNextWindowSize({ 600.0f, 700.0f }, ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(title, &open)) {
@@ -167,8 +203,10 @@ void CodingWindow::draw(Workspace& ws) {
 		job_.start([wanted](std::stop_token) -> std::optional<Outcome> { return run(wanted); });
 	}
 
-	ui::hint("Sends a message through an error-correcting code: encode, interleave, damage, deinterleave, decode. "
-		"See which bits arrived wrong and whether the code repaired them.");
+	ui::hint(
+		"Sends a message through an error-correcting code: encode, interleave, damage, deinterleave, decode. "
+		"See which bits arrived wrong and whether the code repaired them."
+	);
 
 	ImGui::SeparatorText("Message");
 	draw_message();
@@ -225,7 +263,9 @@ void CodingWindow::draw_message() {
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(ui::em(6.0f));
 		int seed = static_cast<int>(seed_);
-		if (ImGui::InputInt("Seed", &seed)) seed_ = static_cast<unsigned>(std::max(seed, 0));
+		if (ImGui::InputInt("Seed", &seed)) {
+			seed_ = static_cast<unsigned>(std::max(seed, 0));
+		}
 	}
 }
 
@@ -238,7 +278,8 @@ void CodingWindow::draw_code() {
 	if (ImGui::BeginCombo("N", std::to_string(code_.n()).c_str())) {
 		for (int l = 3; l <= 12; ++l) {
 			if (ImGui::Selectable(std::to_string(1 << l).c_str(), l == code_.n_log2)) {
-				code_.k = static_cast<int>(std::lround(static_cast<double>(code_.k) * (1 << l) / code_.n())); // keep the rate
+				code_.k =
+					static_cast<int>(std::lround(static_cast<double>(code_.k) * (1 << l) / code_.n())); // keep the rate
 				code_.n_log2 = l;
 			}
 		}
@@ -262,19 +303,33 @@ void CodingWindow::draw_code() {
 	ImGui::SetNextItemWidth(ui::em(5.0f));
 	ui::enum_combo("CRC", code_.crc, coding::all_crcs);
 	ui::help(tips::crc);
-	if (code_.decoder == coding::Decoder::CA_SCL && code_.crc == coding::Crc::None) code_.crc = coding::Crc::Crc8;
+	if (code_.decoder == coding::Decoder::CA_SCL && code_.crc == coding::Crc::None) {
+		code_.crc = coding::Crc::Crc8;
+	}
 
 	ImGui::SetNextItemWidth(ui::em(8.0f));
 	ImGui::SliderFloat("Designed for Eb/N0", &code_.design_db, -2.0f, 8.0f, "%.1f dB");
 	ui::help(tips::polar_design);
 
-	const std::size_t message_bits = source_ == MessageSource::Text ? text_.size() * 8 : static_cast<std::size_t>(random_bits_);
+	const std::size_t message_bits =
+		source_ == MessageSource::Text ? text_.size() * 8 : static_cast<std::size_t>(random_bits_);
 	if (code_.enabled) {
 		const auto frames = coding::codewords_for(code_, message_bits);
 		if (frames) {
-			ui::hint(std::format("Rate {:.2f}: each codeword carries {} message bits + {} CRC bits + {} redundant bits. "
-				"{} message bits -> {} codeword(s) = {} bits on the air.", code_.rate(), code_.message_bits(), coding::crc_bits(code_.crc),
-				code_.n() - code_.k, message_bits, *frames, *frames * static_cast<std::size_t>(code_.n())).c_str());
+			ui::hint(
+				std::format(
+					"Rate {:.2f}: each codeword carries {} message bits + {} CRC bits + {} redundant bits. "
+					"{} message bits -> {} codeword(s) = {} bits on the air.",
+					code_.rate(),
+					code_.message_bits(),
+					coding::crc_bits(code_.crc),
+					code_.n() - code_.k,
+					message_bits,
+					*frames,
+					*frames * static_cast<std::size_t>(code_.n())
+				)
+					.c_str()
+			);
 		}
 		else {
 			ui::error_text(frames.error());
@@ -296,7 +351,9 @@ void CodingWindow::draw_code() {
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(ui::em(6.0f));
 		int seed = static_cast<int>(interleaver_.seed);
-		if (ImGui::InputInt("Seed##interleaver", &seed)) interleaver_.seed = static_cast<unsigned>(std::max(seed, 0));
+		if (ImGui::InputInt("Seed##interleaver", &seed)) {
+			interleaver_.seed = static_cast<unsigned>(std::max(seed, 0));
+		}
 	}
 }
 
@@ -332,7 +389,12 @@ void CodingWindow::draw_channel(Workspace& ws) {
 		auto signal = sig::link::modulate(outcome_->tx->sent, link_);
 		if (signal) {
 			signal->name = std::format("Coded message, {}", sig::link::describe(link_));
-			signal->description = std::format("{} bits ({}) sent as {}.", outcome_->tx->sent.size(), describe(outcome_->tx->code), sig::link::describe(link_));
+			signal->description = std::format(
+				"{} bits ({}) sent as {}.",
+				outcome_->tx->sent.size(),
+				describe(outcome_->tx->code),
+				sig::link::describe(link_)
+			);
 			ws.add_and_select(std::move(*signal));
 			channel_ = Channel::Signal;
 			make_error_.clear();
@@ -342,12 +404,22 @@ void CodingWindow::draw_channel(Workspace& ws) {
 		}
 	}
 	ImGui::EndDisabled();
-	ui::explain("Puts the coded bits on a carrier as a real signal, shows it in the viewer (Space plays it) and decodes it from there. "
-		"Damage it with other windows (Transform: Add noise, Filter, ...) and watch the result here.");
+	ui::explain(
+		"Puts the coded bits on a carrier as a real signal, shows it in the viewer (Space plays it) and decodes it from there. "
+		"Damage it with other windows (Transform: Add noise, Filter, ...) and watch the result here."
+	);
 	ui::error_text(make_error_);
-	if (channel_ == Channel::Signal)
-		ui::hint(std::format("Decoding \"{}\" as {}. After changing the message, code or interleaver, make a new signal: "
-			"the old one carries the old bits.", ws.current->name(), sig::link::describe(link_)).c_str());
+	if (channel_ == Channel::Signal) {
+		ui::hint(
+			std::format(
+				"Decoding \"{}\" as {}. After changing the message, code or interleaver, make a new signal: "
+				"the old one carries the old bits.",
+				ws.current->name(),
+				sig::link::describe(link_)
+			)
+				.c_str()
+		);
+	}
 
 	draw_damage();
 }
@@ -366,11 +438,13 @@ void CodingWindow::draw_damage() {
 		ui::enum_combo("##pattern", d.pattern, coding::all_patterns);
 		ImGui::PushItemWidth(ui::em(5.0f));
 		switch (d.pattern) {
-		case coding::Pattern::All: break;
+		case coding::Pattern::All:    break;
 		case coding::Pattern::Random: {
 			ImGui::SameLine();
 			float p = d.probability * 100.0f;
-			if (ImGui::SliderFloat("##p", &p, 0.01f, 50.0f, "%.2f %%", ImGuiSliderFlags_Logarithmic)) d.probability = p / 100.0f;
+			if (ImGui::SliderFloat("##p", &p, 0.01f, 50.0f, "%.2f %%", ImGuiSliderFlags_Logarithmic)) {
+				d.probability = p / 100.0f;
+			}
 			break;
 		}
 		case coding::Pattern::EveryNth:
@@ -397,15 +471,23 @@ void CodingWindow::draw_damage() {
 		if (d.pattern == coding::Pattern::Random || d.effect == coding::Effect::Noise) {
 			ImGui::SameLine();
 			int seed = static_cast<int>(d.seed);
-			if (ImGui::InputInt("seed", &seed, 0)) d.seed = static_cast<unsigned>(std::max(seed, 0));
+			if (ImGui::InputInt("seed", &seed, 0)) {
+				d.seed = static_cast<unsigned>(std::max(seed, 0));
+			}
 		}
 		ImGui::PopItemWidth();
 		ImGui::SameLine();
-		if (ImGui::SmallButton("x")) remove = static_cast<int>(i);
+		if (ImGui::SmallButton("x")) {
+			remove = static_cast<int>(i);
+		}
 		ImGui::PopID();
 	}
-	if (remove >= 0) damage_.erase(damage_.begin() + remove);
-	if (ImGui::SmallButton("+ Add damage")) damage_.push_back({ .seed = static_cast<unsigned>(damage_.size() + 1) });
+	if (remove >= 0) {
+		damage_.erase(damage_.begin() + remove);
+	}
+	if (ImGui::SmallButton("+ Add damage")) {
+		damage_.push_back({ .seed = static_cast<unsigned>(damage_.size() + 1) });
+	}
 	if (damage_.empty()) {
 		ImGui::SameLine();
 		ImGui::TextDisabled("(none: every bit arrives as it was sent)");
@@ -415,69 +497,121 @@ void CodingWindow::draw_damage() {
 // ---- results --------------------------------------------------------------------------------------------------
 
 void CodingWindow::draw_summary(const Outcome& out) {
-	if (job_.busy()) ui::busy("Decoding");
+	if (job_.busy()) {
+		ui::busy("Decoding");
+	}
 	if (!out.error.empty() || !out.tx || !out.rx) {
 		ui::error_text(out.error);
 		return;
 	}
 	const coding::Transmission& tx = *out.tx;
-	const coding::Reception& rx = *out.rx;
+	const coding::Reception&    rx = *out.rx;
 
-	ImGui::Text("On the air: %zu bits, %zu wrong (%.2f %%), %zu erased.", tx.sent.size(), rx.channel_errors, percent(rx.channel_errors, tx.sent.size()), rx.erased);
+	ImGui::Text(
+		"On the air: %zu bits, %zu wrong (%.2f %%), %zu erased.",
+		tx.sent.size(),
+		rx.channel_errors,
+		percent(rx.channel_errors, tx.sent.size()),
+		rx.erased
+	);
 	const bool clean = rx.decoded_errors == 0;
-	ImGui::TextColored(clean ? good_text : bad_text, "%s: %zu of %zu message bits wrong (%.2f %%), %zu of %zu codeword(s) failed.",
-		tx.code.enabled ? "After decoding" : "Received", rx.decoded_errors, tx.message.size(), percent(rx.decoded_errors, tx.message.size()),
-		rx.frame_errors, tx.frames);
+	ImGui::TextColored(
+		clean ? good_text : bad_text,
+		"%s: %zu of %zu message bits wrong (%.2f %%), %zu of %zu codeword(s) failed.",
+		tx.code.enabled ? "After decoding" : "Received",
+		rx.decoded_errors,
+		tx.message.size(),
+		percent(rx.decoded_errors, tx.message.size()),
+		rx.frame_errors,
+		tx.frames
+	);
 	if (!rx.crc_failed.empty()) {
-		const auto flagged = static_cast<std::size_t>(std::ranges::count(rx.crc_failed, true));
+		const auto  flagged = static_cast<std::size_t>(std::ranges::count(rx.crc_failed, true));
 		std::size_t missed = 0;
-		for (std::size_t f = 0; f < tx.frames; ++f) missed += rx.frame_wrong[f] && !rx.crc_failed[f];
-		ImGui::TextDisabled("The CRC flagged %zu codeword(s) as broken%s.", flagged,
-			missed ? std::format(", and missed {} that are", missed).c_str() : "");
+		for (std::size_t f = 0; f < tx.frames; ++f) {
+			missed += rx.frame_wrong[f] && !rx.crc_failed[f];
+		}
+		ImGui::TextDisabled(
+			"The CRC flagged %zu codeword(s) as broken%s.",
+			flagged,
+			missed ? std::format(", and missed {} that are", missed).c_str() : ""
+		);
 	}
 	if (out.uncoded) {
-		ImGui::TextDisabled("Without error correction, the same damage leaves %zu message bits wrong (%.2f %%).",
-			out.uncoded->decoded_errors, percent(out.uncoded->decoded_errors, tx.message.size()));
+		ImGui::TextDisabled(
+			"Without error correction, the same damage leaves %zu message bits wrong (%.2f %%).",
+			out.uncoded->decoded_errors,
+			percent(out.uncoded->decoded_errors, tx.message.size())
+		);
 	}
-	if (out.inverted) ImGui::TextDisabled("The receiver locked upside down (180 degrees off); its bits were flipped back.");
+	if (out.inverted) {
+		ImGui::TextDisabled("The receiver locked upside down (180 degrees off); its bits were flipped back.");
+	}
 }
 
 void CodingWindow::draw_error_map(const Outcome& out) {
-	if (!out.tx || !out.rx) return;
+	if (!out.tx || !out.rx) {
+		return;
+	}
 	const coding::Transmission& tx = *out.tx;
-	const coding::Reception& rx = *out.rx;
-	const std::size_t columns = tx.code.enabled ? tx.frame_size : std::min<std::size_t>(tx.sent.size(), 128);
+	const coding::Reception&    rx = *out.rx;
+	const std::size_t           columns = tx.code.enabled ? tx.frame_size : std::min<std::size_t>(tx.sent.size(), 128);
 
 	legend_square(ok_color, "arrived right");
 	legend_square(wrong_color, "arrived wrong");
 	legend_square(erased_color, "erased");
-	if (tx.code.enabled) legend_square(good_frame_color, "codeword repaired");
+	if (tx.code.enabled) {
+		legend_square(good_frame_color, "codeword repaired");
+	}
 	ImGui::NewLine();
 
 	ImGui::TextDisabled("On the air, in the order sent (%zu bits per row):", columns);
-	bit_grid("##air", tx.sent.size(), columns, [&](std::size_t i) {
-		if (rx.soft[i] == 0.0f) return erased_color;
-		return (rx.soft[i] < 0.0f) != (tx.sent[i] != 0) ? wrong_color : ok_color;
-	}, nullptr);
+	bit_grid(
+		"##air",
+		tx.sent.size(),
+		columns,
+		[&](std::size_t i) {
+			if (rx.soft[i] == 0.0f) {
+				return erased_color;
+			}
+			return (rx.soft[i] < 0.0f) != (tx.sent[i] != 0) ? wrong_color : ok_color;
+		},
+		nullptr
+	);
 
-	ImGui::TextDisabled(tx.code.enabled ? "After deinterleaving: one codeword per row (left: repaired or not):" : "After deinterleaving:");
+	ImGui::TextDisabled(
+		tx.code.enabled ? "After deinterleaving: one codeword per row (left: repaired or not):"
+						: "After deinterleaving:"
+	);
 	ui::help(tips::error_map);
-	bit_grid("##codewords", tx.codewords.size(), columns, [&](std::size_t i) {
-		if (rx.deinterleaved[i] == 0.0f) return erased_color;
-		return rx.received[i] != tx.codewords[i] ? wrong_color : ok_color;
-	}, tx.code.enabled ? std::function<ImU32(std::size_t)>([&](std::size_t row) { return row < rx.frame_wrong.size() && rx.frame_wrong[row] ? wrong_color : good_frame_color; })
-		: nullptr);
+	bit_grid(
+		"##codewords",
+		tx.codewords.size(),
+		columns,
+		[&](std::size_t i) {
+			if (rx.deinterleaved[i] == 0.0f) {
+				return erased_color;
+			}
+			return rx.received[i] != tx.codewords[i] ? wrong_color : ok_color;
+		},
+		tx.code.enabled ? std::function<ImU32(std::size_t)>([&](std::size_t row) {
+			return row < rx.frame_wrong.size() && rx.frame_wrong[row] ? wrong_color : good_frame_color;
+		})
+						: nullptr
+	);
 }
 
 void CodingWindow::draw_soft_bits(const Outcome& out) {
-	if (!out.tx || !out.rx) return;
+	if (!out.tx || !out.rx) {
+		return;
+	}
 	const coding::Transmission& tx = *out.tx;
-	const coding::Reception& rx = *out.rx;
+	const coding::Reception&    rx = *out.rx;
 	ImGui::TextDisabled("What is this? (?)");
 	ui::explain(tips::soft_bits);
 
 	// At most ~40000 dots; wrong ones always shown.
-	const std::size_t step = std::max<std::size_t>(1, rx.soft.size() / 40000);
+	const std::size_t  step = std::max<std::size_t>(1, rx.soft.size() / 40000);
 	std::vector<float> rx_x, rx_y, wx, wy;
 	for (std::size_t i = 0; i < rx.soft.size(); ++i) {
 		const bool wrong = (rx.soft[i] < 0.0f) != (tx.sent[i] != 0);
@@ -490,9 +624,17 @@ void CodingWindow::draw_soft_bits(const Outcome& out) {
 			rx_y.push_back(rx.soft[i]);
 		}
 	}
-	if (!ImPlot::BeginPlot("##soft", { -1.0f, std::max(ui::em(14.0f), ImGui::GetContentRegionAvail().y) })) return;
+	if (!ImPlot::BeginPlot("##soft", { -1.0f, std::max(ui::em(14.0f), ImGui::GetContentRegionAvail().y) })) {
+		return;
+	}
 	ImPlot::SetupAxes("Bit (in the order sent)", "Soft value (+ = 0, - = 1)");
-	ImPlot::SetupAxesLimits(0.0, std::min<double>(512.0, static_cast<double>(rx.soft.size())), -2.0, 2.0, ImPlotCond_Once);
+	ImPlot::SetupAxesLimits(
+		0.0,
+		std::min<double>(512.0, static_cast<double>(rx.soft.size())),
+		-2.0,
+		2.0,
+		ImPlotCond_Once
+	);
 	plots::horizontal_line(0.0, IM_COL32(255, 255, 255, 90));
 	ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 2.0f, { 0.4f, 0.7f, 1.0f, 0.7f }, 0.0f);
 	ImPlot::PlotScatter("right", rx_x.data(), rx_y.data(), static_cast<int>(rx_x.size()));
@@ -502,29 +644,42 @@ void CodingWindow::draw_soft_bits(const Outcome& out) {
 }
 
 void CodingWindow::draw_text(const Outcome& out) {
-	if (!out.tx || !out.rx) return;
+	if (!out.tx || !out.rx) {
+		return;
+	}
 	const bool text = out.inputs.source == MessageSource::Text;
 	const auto show = [&](const char* label, const coding::Bits& bits, const coding::Bits* reference) {
 		ImGui::TextDisabled("%s", label);
-		std::string body = text ? coding::bits_to_text(bits) : coding::to_string(std::span(bits).first(std::min<std::size_t>(bits.size(), 1024)));
-		if (!text && bits.size() > 1024) body += " ...";
+		std::string body = text ? coding::bits_to_text(bits)
+		                        : coding::to_string(std::span(bits).first(std::min<std::size_t>(bits.size(), 1024)));
+		if (!text && bits.size() > 1024) {
+			body += " ...";
+		}
 		if (reference) {
 			std::size_t wrong = 0;
-			for (std::size_t i = 0; i < std::min(bits.size(), reference->size()); ++i) wrong += bits[i] != (*reference)[i];
+			for (std::size_t i = 0; i < std::min(bits.size(), reference->size()); ++i) {
+				wrong += bits[i] != (*reference)[i];
+			}
 			ImGui::PushStyleColor(ImGuiCol_Text, wrong ? bad_text : good_text);
 		}
 		ImGui::TextWrapped("%s", body.c_str());
-		if (reference) ImGui::PopStyleColor();
+		if (reference) {
+			ImGui::PopStyleColor();
+		}
 		ImGui::Spacing();
 	};
 	show("Sent:", out.tx->message, nullptr);
 	show(out.tx->code.enabled ? "Received, after error correction:" : "Received:", out.rx->decoded, &out.tx->message);
-	if (out.uncoded) show("The same damage without error correction:", out.uncoded->decoded, &out.tx->message);
+	if (out.uncoded) {
+		show("The same damage without error correction:", out.uncoded->decoded, &out.tx->message);
+	}
 }
 
 void CodingWindow::draw_curve() {
-	ui::hint("How often bits still come out wrong after decoding, over a radio channel with Gaussian noise (BPSK), from very noisy "
-		"(left) to clean (right). The grey line is sending without a code. Compare decoders, list sizes and code rates.");
+	ui::hint(
+		"How often bits still come out wrong after decoding, over a radio channel with Gaussian noise (BPSK), from very noisy "
+		"(left) to clean (right). The grey line is sending without a code. Compare decoders, list sizes and code rates."
+	);
 	ImGui::PushItemWidth(ui::em(4.0f));
 	ImGui::DragFloat("from", &curve_from_, 0.1f, -5.0f, 15.0f, "%.1f");
 	ImGui::SameLine();
@@ -537,7 +692,9 @@ void CodingWindow::draw_curve() {
 	ImGui::SliderInt("Codewords per point", &curve_frames_, 100, 100'000, "%d", ImGuiSliderFlags_Logarithmic);
 
 	if (curve_job_.busy()) {
-		if (ImGui::Button("Stop")) curve_job_.cancel();
+		if (ImGui::Button("Stop")) {
+			curve_job_.cancel();
+		}
 		ImGui::SameLine();
 		ui::busy("Simulating");
 	}
@@ -545,23 +702,29 @@ void CodingWindow::draw_curve() {
 		ImGui::BeginDisabled(!code_.enabled);
 		if (ImGui::Button("Add a curve for these code settings")) {
 			curve_label_ = describe(code_);
-			const auto code = code_;
+			const auto   code = code_;
 			const double from = curve_from_, to = std::max(curve_to_, curve_from_), step = std::max(curve_step_, 0.1f);
-			const auto frames = static_cast<std::size_t>(curve_frames_);
+			const auto   frames = static_cast<std::size_t>(curve_frames_);
 			curve_job_.start([=](std::stop_token stop) -> std::optional<std::vector<coding::CurvePoint>> {
 				auto points = coding::ber_curve(code, from, to, step, frames, stop);
-				if (points.empty()) return std::nullopt;
+				if (points.empty()) {
+					return std::nullopt;
+				}
 				return points;
 			});
 		}
 		ImGui::EndDisabled();
 		if (!curves_.empty()) {
 			ImGui::SameLine();
-			if (ImGui::Button("Clear")) curves_.clear();
+			if (ImGui::Button("Clear")) {
+				curves_.clear();
+			}
 		}
 	}
 
-	if (!ImPlot::BeginPlot("##ber", { -1.0f, std::max(ui::em(16.0f), ImGui::GetContentRegionAvail().y) })) return;
+	if (!ImPlot::BeginPlot("##ber", { -1.0f, std::max(ui::em(16.0f), ImGui::GetContentRegionAvail().y) })) {
+		return;
+	}
 	ImPlot::SetupAxes("Eb/N0 (dB)", "Bit error rate");
 	ImPlot::SetupAxisScale(ImAxis_Y1, ImPlotScale_Log10);
 	ImPlot::SetupAxesLimits(curve_from_, curve_to_, 1e-6, 1.0, ImPlotCond_Once);
@@ -577,12 +740,19 @@ void CodingWindow::draw_curve() {
 	for (std::size_t c = 0; c < curves_.size(); ++c) {
 		std::vector<double> x, y;
 		for (const auto& p : curves_[c].points) {
-			if (p.ber <= 0.0) continue; // not measurable with this many codewords
+			if (p.ber <= 0.0) {
+				continue; // not measurable with this many codewords
+			}
 			x.push_back(p.eb_n0_db);
 			y.push_back(p.ber);
 		}
 		ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.0f);
-		ImPlot::PlotLine(std::format("{}##{}", curves_[c].label, c).c_str(), x.data(), y.data(), static_cast<int>(x.size()));
+		ImPlot::PlotLine(
+			std::format("{}##{}", curves_[c].label, c).c_str(),
+			x.data(),
+			y.data(),
+			static_cast<int>(x.size())
+		);
 	}
 	ImPlot::EndPlot();
 }

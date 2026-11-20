@@ -19,7 +19,11 @@ namespace {
 
 	[[nodiscard]] std::string suggested_file_name(const sig::Signal& signal) {
 		std::string name = signal.name;
-		std::ranges::replace_if(name, [](unsigned char c) { return !std::isalnum(c) && c != '-' && c != '_' && c != '.'; }, '_');
+		std::ranges::replace_if(
+			name,
+			[](unsigned char c) { return !std::isalnum(c) && c != '-' && c != '_' && c != '.'; },
+			'_'
+		);
 		return std::filesystem::path(name).stem().string() + ".wav";
 	}
 
@@ -34,14 +38,18 @@ void SignalViewer::on_signal_changed(const Workspace& ws) {
 
 	// Keep the listen mode valid for the new signal (real signals only have "Signal").
 	const auto options = sig::audio::listen_options(ws.signal().layout);
-	if (!std::ranges::contains(options, sound_.listen)) sound_.listen = options.front();
+	if (!std::ranges::contains(options, sound_.listen)) {
+		sound_.listen = options.front();
+	}
 }
 
 void SignalViewer::draw(Workspace& ws) {
 	ImGui::SetNextWindowSize({ 1000.0f, 700.0f }, ImGuiCond_FirstUseEver);
 	if (!open || !ImGui::Begin(title, &open)) {
 		audio_.stop(); // hidden: playback doesn't advance, so the sound must not either
-		if (open) ImGui::End();
+		if (open) {
+			ImGui::End();
+		}
 		return;
 	}
 
@@ -49,8 +57,12 @@ void SignalViewer::draw(Workspace& ws) {
 	draw_toolbar(ws);
 	draw_file_dialogs(ws);
 	if (ws.current != shown_) {
-		if (same_source(ws.current, shown_)) shown_ = ws.current; // a live update: keep the view
-		else on_signal_changed(ws);
+		if (same_source(ws.current, shown_)) {
+			shown_ = ws.current; // a live update: keep the view
+		}
+		else {
+			on_signal_changed(ws);
+		}
 	}
 
 	const sig::Signal& signal = ws.signal();
@@ -67,16 +79,29 @@ void SignalViewer::draw(Workspace& ws) {
 	if (ws.audition) {
 		ImGui::TextColored({ 0.4f, 1.0f, 0.6f, 1.0f }, "Hearing: %s", ws.audition->label.c_str());
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Hear the original")) ws.audition.reset();
+		if (ImGui::SmallButton("Hear the original")) {
+			ws.audition.reset();
+		}
 	}
 
 	ImGui::TextWrapped("%s", signal.description.c_str());
-	ImGui::TextDisabled("%s", std::format("{}, {} sample rate, {} samples, {:.2f} s",
-		signal.is_iq() ? "I/Q" : "real", sig::format_hz(signal.sample_rate), signal.frames(), signal.duration()).c_str());
+	ImGui::TextDisabled(
+		"%s",
+		std::format(
+			"{}, {} sample rate, {} samples, {:.2f} s",
+			signal.is_iq() ? "I/Q" : "real",
+			sig::format_hz(signal.sample_rate),
+			signal.frames(),
+			signal.duration()
+		)
+			.c_str()
+	);
 	ImGui::Spacing();
 
 	if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
-		if (ImGui::IsKeyPressed(ImGuiKey_Space, false)) ws.playback.toggle(signal.duration());
+		if (ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+			ws.playback.toggle(signal.duration());
+		}
 		if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
 			ws.selection.reset();
 			ws.cursors = {};
@@ -111,7 +136,7 @@ void SignalViewer::draw(Workspace& ws) {
 	}
 
 	if (sound_.enabled && ws.playback.playing && !scrubbing) {
-		const TimeRange loop = ws.loop_range();
+		const TimeRange          loop = ws.loop_range();
 		const sig::audio::Params params{
 			.listen = sound_.listen,
 			.speed = ws.playback.speed,
@@ -133,24 +158,36 @@ void SignalViewer::draw(Workspace& ws) {
 void SignalViewer::draw_toolbar(Workspace& ws) {
 	ImGui::SetNextItemWidth(ui::em(16.0f));
 	TrackPtr chosen = ws.current;
-	if (ui::track_combo("Signal", ws.library.tracks(), chosen)) ws.select(chosen);
+	if (ui::track_combo("Signal", ws.library.tracks(), chosen)) {
+		ws.select(chosen);
+	}
 
 	ImGui::SameLine();
-	if (ImGui::Button("Load...")) open_load_dialog();
+	if (ImGui::Button("Load...")) {
+		open_load_dialog();
+	}
 
 	ImGui::SameLine();
 	if (ImGui::Button("Save...")) {
 		pending_ = Pending::Save;
-		browser_.open(FileBrowser::Mode::Save, sig::io::all_extensions(),
-			"The extension picks the format: .wav .cf32 .cs16 .cs8 .cu8 .f32", suggested_file_name(ws.signal()));
+		browser_.open(
+			FileBrowser::Mode::Save,
+			sig::io::all_extensions(),
+			"The extension picks the format: .wav .cf32 .cs16 .cs8 .cu8 .f32",
+			suggested_file_name(ws.signal())
+		);
 	}
 
 	if (ws.selection) {
 		ImGui::SameLine();
 		if (ImGui::Button("Save selection...")) {
 			pending_ = Pending::SaveSelection;
-			browser_.open(FileBrowser::Mode::Save, sig::io::all_extensions(),
-				"Saves only the selected part. The extension picks the format.", suggested_file_name(ws.signal()));
+			browser_.open(
+				FileBrowser::Mode::Save,
+				sig::io::all_extensions(),
+				"Saves only the selected part. The extension picks the format.",
+				suggested_file_name(ws.signal())
+			);
 		}
 	}
 
@@ -171,9 +208,12 @@ void SignalViewer::open_load_dialog() {
 	pending_ = Pending::Load;
 	auto extensions = sig::io::all_extensions();
 	extensions.insert(extensions.end(), { ".sigmf-meta", ".sigmf-data" });
-	browser_.open(FileBrowser::Mode::Open, std::move(extensions),
+	browser_.open(
+		FileBrowser::Mode::Open,
+		std::move(extensions),
 		"Raw files (.cf32 .cs16 .cs8 .cu8 .f32) ask for a sample rate in the next step. SigMF knows its own. "
-		"You can also drop files on the window.");
+		"You can also drop files on the window."
+	);
 }
 
 void SignalViewer::draw_file_dialogs(Workspace& ws) {
@@ -230,11 +270,17 @@ void SignalViewer::draw_import_dialog(Workspace& ws) {
 		import_.open_requested = false;
 	}
 	ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, { 0.5f, 0.5f });
-	if (!ImGui::BeginPopupModal(dialog_title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+	if (!ImGui::BeginPopupModal(dialog_title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		return;
+	}
 
 	ImGui::TextUnformatted(import_.path.filename().string().c_str());
-	if (import_.sigmf) ImGui::TextDisabled("SigMF: format, sample rate and frequency come from the .sigmf-meta file.");
-	else ImGui::TextDisabled("Raw files have no header, so say how to read them.");
+	if (import_.sigmf) {
+		ImGui::TextDisabled("SigMF: format, sample rate and frequency come from the .sigmf-meta file.");
+	}
+	else {
+		ImGui::TextDisabled("Raw files have no header, so say how to read them.");
+	}
 	ImGui::Spacing();
 
 	ImGui::BeginDisabled(import_.sigmf);
@@ -242,8 +288,12 @@ void SignalViewer::draw_import_dialog(Workspace& ws) {
 	ImGui::SetNextItemWidth(ui::em(8.0f));
 	if (ImGui::BeginCombo("Format", std::string(selected.name).c_str())) {
 		for (const sig::io::FormatInfo& f : sig::io::formats) {
-			if (f.self_describing) continue; // WAV never gets here
-			if (ImGui::Selectable(std::string(f.name).c_str(), f.format == import_.format)) import_.format = f.format;
+			if (f.self_describing) {
+				continue; // WAV never gets here
+			}
+			if (ImGui::Selectable(std::string(f.name).c_str(), f.format == import_.format)) {
+				import_.format = f.format;
+			}
 		}
 		ImGui::EndCombo();
 	}
@@ -253,7 +303,9 @@ void SignalViewer::draw_import_dialog(Workspace& ws) {
 	ImGui::InputFloat("Sample rate (Hz)", &import_.sample_rate, 0.0f, 0.0f, "%.0f");
 
 	for (const float preset : { 48'000.0f, 250'000.0f, 1'024'000.0f, 2'048'000.0f, 2'400'000.0f }) {
-		if (ImGui::SmallButton(std::format("{:g}k", preset / 1000.0f).c_str())) import_.sample_rate = preset;
+		if (ImGui::SmallButton(std::format("{:g}k", preset / 1000.0f).c_str())) {
+			import_.sample_rate = preset;
+		}
 		ImGui::SameLine();
 	}
 	ImGui::NewLine();
@@ -261,14 +313,21 @@ void SignalViewer::draw_import_dialog(Workspace& ws) {
 
 	ImGui::SetNextItemWidth(ui::em(12.0f));
 	ImGui::InputDouble("Tuned to (Hz)", &import_.center_hz, 0.0, 0.0, "%.0f");
-	ui::help("The frequency the receiver was tuned to (e.g. 433920000). Frequency axes then show the real radio "
-		"frequency instead of the offset from the middle. Leave 0 if you don't know.");
+	ui::help(
+		"The frequency the receiver was tuned to (e.g. 433920000). Frequency axes then show the real radio "
+		"frequency instead of the offset from the middle. Leave 0 if you don't know."
+	);
 
 	// How long the file is, and which part of it to load.
 	const std::size_t frame = sig::io::frame_bytes(import_.format);
-	const double total_seconds = frame > 0 && import_.sample_rate > 0.0f
-		? static_cast<double>(import_.file_bytes / frame) / import_.sample_rate : 0.0;
-	ImGui::Text("The file holds %s (%.0f MB).", sig::format_seconds(total_seconds).c_str(), static_cast<double>(import_.file_bytes) / 1e6);
+	const double      total_seconds = frame > 0 && import_.sample_rate > 0.0f
+	                                      ? static_cast<double>(import_.file_bytes / frame) / import_.sample_rate
+	                                      : 0.0;
+	ImGui::Text(
+		"The file holds %s (%.0f MB).",
+		sig::format_seconds(total_seconds).c_str(),
+		static_cast<double>(import_.file_bytes) / 1e6
+	);
 	ImGui::SetNextItemWidth(ui::em(8.0f));
 	ImGui::InputDouble("Start (s)", &import_.start_seconds, 0.0, 0.0, "%.3f");
 	ImGui::SameLine();
@@ -277,18 +336,31 @@ void SignalViewer::draw_import_dialog(Workspace& ws) {
 	ui::help("0 = everything. A big recording can be looked at piece by piece: load 10 s at a time.");
 	import_.start_seconds = std::clamp(import_.start_seconds, 0.0, total_seconds);
 	import_.max_seconds = std::max(import_.max_seconds, 0.0);
-	const double loading = import_.max_seconds > 0.0 ? std::min(import_.max_seconds, total_seconds - import_.start_seconds) : total_seconds - import_.start_seconds;
+	const double loading = import_.max_seconds > 0.0
+	                           ? std::min(import_.max_seconds, total_seconds - import_.start_seconds)
+	                           : total_seconds - import_.start_seconds;
 	const double megabytes = loading * import_.sample_rate * (import_.format == sig::io::Format::F32 ? 4.0 : 8.0) / 1e6;
-	if (megabytes > 2000.0) ui::error_text(std::format("That needs {:.0f} MB of memory: load a shorter part.", megabytes));
+	if (megabytes > 2000.0) {
+		ui::error_text(std::format("That needs {:.0f} MB of memory: load a shorter part.", megabytes));
+	}
 	ImGui::Spacing();
 
 	if (ImGui::Button("Load", { ui::em(5.0f), 0.0f })) {
-		load_file(ws, import_.path, { .format = import_.format, .sample_rate = import_.sample_rate, .center_hz = import_.center_hz,
-			.start_seconds = import_.start_seconds, .max_seconds = import_.max_seconds });
+		load_file(
+			ws,
+			import_.path,
+			{ .format = import_.format,
+		      .sample_rate = import_.sample_rate,
+		      .center_hz = import_.center_hz,
+		      .start_seconds = import_.start_seconds,
+		      .max_seconds = import_.max_seconds }
+		);
 		ImGui::CloseCurrentPopup();
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Cancel", { ui::em(5.0f), 0.0f })) ImGui::CloseCurrentPopup();
+	if (ImGui::Button("Cancel", { ui::em(5.0f), 0.0f })) {
+		ImGui::CloseCurrentPopup();
+	}
 
 	ImGui::EndPopup();
 }
@@ -319,17 +391,23 @@ void SignalViewer::save_to(const Workspace& ws, std::filesystem::path path, bool
 		result = sig::io::save(ws.signal(), path, *format);
 	}
 
-	if (!result) status_ = { result.error(), true };
-	else         status_ = { std::format("Saved {}", path.string()), false };
+	if (!result) {
+		status_ = { result.error(), true };
+	}
+	else {
+		status_ = { std::format("Saved {}", path.string()), false };
+	}
 }
 
 // ---- transport, sound, marks ---------------------------------------------------------------------------
 
 void SignalViewer::draw_transport(Workspace& ws) {
-	Playback& playback = ws.playback;
+	Playback&    playback = ws.playback;
 	const double duration = ws.signal().duration();
 
-	if (ImGui::Button(playback.playing ? "Pause" : "Play", { ui::em(4.0f), 0.0f })) playback.toggle(duration);
+	if (ImGui::Button(playback.playing ? "Pause" : "Play", { ui::em(4.0f), 0.0f })) {
+		playback.toggle(duration);
+	}
 	ImGui::SameLine();
 	if (ImGui::Button("Stop", { ui::em(4.0f), 0.0f })) {
 		playback.playing = false;
@@ -358,7 +436,9 @@ void SignalViewer::draw_sound_controls(const Workspace& ws) {
 
 	// I/Q signals have no single "sound": pick what to listen to.
 	const auto options = sig::audio::listen_options(ws.signal().layout);
-	if (options.size() < 2) return;
+	if (options.size() < 2) {
+		return;
+	}
 
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(ui::em(12.0f));
@@ -372,31 +452,49 @@ void SignalViewer::draw_marks(Workspace& ws) {
 
 	if (ws.selection) {
 		const TimeRange& s = *ws.selection;
-		ImGui::Text("Selection: %s - %s (%s)", sig::format_seconds(s.begin).c_str(), sig::format_seconds(s.end).c_str(),
-			sig::format_seconds(s.length()).c_str());
+		ImGui::Text(
+			"Selection: %s - %s (%s)",
+			sig::format_seconds(s.begin).c_str(),
+			sig::format_seconds(s.end).c_str(),
+			sig::format_seconds(s.length()).c_str()
+		);
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Clear##selection")) ws.selection.reset();
+		if (ImGui::SmallButton("Clear##selection")) {
+			ws.selection.reset();
+		}
 		any = true;
 	}
 
 	const auto& [a, b] = ws.cursors;
 	if (a || b) {
-		if (any) ImGui::SameLine(0.0f, ui::em(2.0f));
+		if (any) {
+			ImGui::SameLine(0.0f, ui::em(2.0f));
+		}
 		std::string text = "Cursors:";
-		if (a) text += " A " + sig::format_seconds(*a);
-		if (b) text += "  B " + sig::format_seconds(*b);
+		if (a) {
+			text += " A " + sig::format_seconds(*a);
+		}
+		if (b) {
+			text += "  B " + sig::format_seconds(*b);
+		}
 		if (a && b) {
 			const double dt = std::abs(*b - *a);
 			text += "  |  dt " + sig::format_seconds(dt);
-			if (dt > 0.0) text += " = " + sig::format_hz(1.0 / dt);
+			if (dt > 0.0) {
+				text += " = " + sig::format_hz(1.0 / dt);
+			}
 		}
 		ImGui::TextUnformatted(text.c_str());
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Clear##cursors")) ws.cursors = {};
+		if (ImGui::SmallButton("Clear##cursors")) {
+			ws.cursors = {};
+		}
 		any = true;
 	}
 
-	if (!any) ImGui::TextDisabled("Shift + drag to select, right-click to place cursors, Esc clears them.");
+	if (!any) {
+		ImGui::TextDisabled("Shift + drag to select, right-click to place cursors, Esc clears them.");
+	}
 }
 
 // ---- plots -------------------------------------------------------------------------------------------
@@ -407,8 +505,8 @@ void SignalViewer::draw_marks(Workspace& ws) {
 // Returns true while scrubbing.
 bool SignalViewer::handle_mouse(Workspace& ws, const ui::Area& area, const waveform::Canvas& canvas, bool grab) {
 	const ImGuiIO& io = ImGui::GetIO();
-	const double duration = ws.signal().duration();
-	const double mouse_t = std::clamp(canvas.t_at(io.MousePos.x), 0.0, duration);
+	const double   duration = ws.signal().duration();
+	const double   mouse_t = std::clamp(canvas.t_at(io.MousePos.x), 0.0, duration);
 
 	if (area.activated) {
 		drag_ = io.KeyShift ? Drag::Select : Drag::Scrub;
@@ -417,7 +515,9 @@ bool SignalViewer::handle_mouse(Workspace& ws, const ui::Area& area, const wavef
 
 	if (area.dragging) {
 		if (drag_ == Drag::Select) {
-			if (mouse_t != select_anchor_) ws.selection = TimeRange{ std::min(mouse_t, select_anchor_), std::max(mouse_t, select_anchor_) };
+			if (mouse_t != select_anchor_) {
+				ws.selection = TimeRange{ std::min(mouse_t, select_anchor_), std::max(mouse_t, select_anchor_) };
+			}
 		}
 		else if (grab) {
 			const double delta = io.MouseDelta.x / canvas.width() * (canvas.t_end - canvas.t_begin);
@@ -428,7 +528,9 @@ bool SignalViewer::handle_mouse(Workspace& ws, const ui::Area& area, const wavef
 		}
 	}
 
-	if (area.hovered) ws.next_hover.seconds = mouse_t;
+	if (area.hovered) {
+		ws.next_hover.seconds = mouse_t;
+	}
 
 	if (area.hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
 		ws.cursors[static_cast<std::size_t>(next_cursor_)] = mouse_t;
@@ -439,12 +541,20 @@ bool SignalViewer::handle_mouse(Workspace& ws, const ui::Area& area, const wavef
 }
 
 void SignalViewer::draw_marks_on(ImDrawList& dl, const waveform::Canvas& canvas, const Workspace& ws) const {
-	if (ws.selection) waveform::draw_selection(dl, canvas, ws.selection->begin, ws.selection->end);
-	if (ws.cursors[0]) waveform::draw_cursor(dl, canvas, *ws.cursors[0], "A");
-	if (ws.cursors[1]) waveform::draw_cursor(dl, canvas, *ws.cursors[1], "B");
+	if (ws.selection) {
+		waveform::draw_selection(dl, canvas, ws.selection->begin, ws.selection->end);
+	}
+	if (ws.cursors[0]) {
+		waveform::draw_cursor(dl, canvas, *ws.cursors[0], "A");
+	}
+	if (ws.cursors[1]) {
+		waveform::draw_cursor(dl, canvas, *ws.cursors[1], "B");
+	}
 	if (ws.hover.seconds) { // where the mouse points, here or in another window
 		const float x = canvas.x_at(*ws.hover.seconds);
-		if (x >= canvas.min.x && x <= canvas.max.x) dl.AddLine({ x, canvas.min.y }, { x, canvas.max.y }, IM_COL32(255, 255, 255, 70));
+		if (x >= canvas.min.x && x <= canvas.max.x) {
+			dl.AddLine({ x, canvas.min.y }, { x, canvas.max.y }, IM_COL32(255, 255, 255, 70));
+		}
 	}
 	waveform::draw_playhead(dl, canvas, ws.playback.position);
 }
@@ -452,7 +562,8 @@ void SignalViewer::draw_marks_on(ImDrawList& dl, const waveform::Canvas& canvas,
 // The whole signal at a glance.
 bool SignalViewer::draw_overview(Workspace& ws) {
 	const Track&   track = *ws.current;
-	const ui::Area area = ui::interactive_area("##overview", { ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeight() * 5.0f });
+	const ui::Area area =
+		ui::interactive_area("##overview", { ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeight() * 5.0f });
 
 	const waveform::Canvas canvas{
 		.min = area.min,
@@ -481,19 +592,28 @@ bool SignalViewer::draw_scope(Workspace& ws) {
 	const Track& track = *ws.current;
 
 	ImGui::SetNextItemWidth(ui::em(12.0f));
-	ImGui::SliderFloat("Window", &view_.seconds, min_view_seconds, max_view_seconds, "%.5f s", ImGuiSliderFlags_Logarithmic);
+	ImGui::SliderFloat(
+		"Window",
+		&view_.seconds,
+		min_view_seconds,
+		max_view_seconds,
+		"%.5f s",
+		ImGuiSliderFlags_Logarithmic
+	);
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(ui::em(8.0f));
 	ImGui::SliderFloat("Gain", &view_.gain, 0.1f, 100.0f, "%.2fx", ImGuiSliderFlags_Logarithmic);
 	ImGui::SameLine();
-	if (ImGui::Button("Fit") && track.peak() > 0.0f) view_.gain = std::clamp(1.0f / track.peak(), 0.1f, 100.0f);
+	if (ImGui::Button("Fit") && track.peak() > 0.0f) {
+		view_.gain = std::clamp(1.0f / track.peak(), 0.1f, 100.0f);
+	}
 	ImGui::SameLine();
 	ImGui::TextDisabled("Wheel: zoom   Space: play/pause");
 
 	const ImVec2   avail = ImGui::GetContentRegionAvail();
 	const ui::Area area = ui::interactive_area("##scope", { avail.x, std::max(avail.y, 150.0f) });
 
-	const double half = view_.seconds * 0.5;
+	const double           half = view_.seconds * 0.5;
 	const waveform::Canvas canvas{
 		.min = area.min,
 		.max = area.max,
@@ -504,8 +624,9 @@ bool SignalViewer::draw_scope(Workspace& ws) {
 	const bool scrubbing = handle_mouse(ws, area, canvas, true);
 
 	const float wheel = ImGui::GetIO().MouseWheel;
-	if (area.hovered && wheel != 0.0f)
+	if (area.hovered && wheel != 0.0f) {
 		view_.seconds = std::clamp(view_.seconds * std::pow(0.85f, wheel), min_view_seconds, max_view_seconds);
+	}
 
 	ImDrawList& dl = *ImGui::GetWindowDrawList();
 	waveform::draw_track(dl, canvas, track, true);

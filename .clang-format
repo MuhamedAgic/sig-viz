@@ -1,0 +1,81 @@
+# Code style for src/ and tests/ (thirdparty/ has its own file that turns formatting off).
+# Format everything: clang-format -i src/*/*.cpp src/*/*.hpp tests/*.cpp     (needs clang-format 15+)
+---
+Language: Cpp
+Standard: Latest
+ColumnLimit: 120
+
+# Indentation: tabs, shown 4 wide; namespaces are indented, case labels are not.
+UseTab: AlignWithSpaces       # tabs to indent, spaces only to line things up
+TabWidth: 4
+IndentWidth: 4
+ContinuationIndentWidth: 4
+NamespaceIndentation: All
+IndentCaseLabels: false
+AccessModifierOffset: -4
+
+# Braces: { on the same line, the body always on its own lines,
+# and every if / else / for / while gets braces, even around a single statement.
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: false
+  AfterControlStatement: Never
+  AfterEnum: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: false
+  BeforeWhile: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+InsertBraces: true
+AllowShortBlocksOnASingleLine: Never
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortCaseLabelsOnASingleLine: true
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+AllowShortLambdasOnASingleLine: All
+AllowShortEnumsOnASingleLine: true
+
+# Parameters and arguments: if they don't fit on one line, one per line,
+# with the closing ) back at the start:
+#   some_fn(
+#       arg1,
+#       arg2
+#   ) {
+AlignAfterOpenBracket: BlockIndent
+BinPackParameters: OnePerLine
+BinPackArguments: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllArgumentsOnNextLine: false
+PenaltyReturnTypeOnItsOwnLine: 1000
+
+# Small things that match how the code was already written.
+PointerAlignment: Left
+Cpp11BracedListStyle: false       # { .a = 1 } with spaces inside
+SpaceBeforeParens: ControlStatements
+AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveAssignments: None
+AlignTrailingComments: true
+SpacesBeforeTrailingComments: 1
+AlwaysBreakTemplateDeclarations: Yes
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: CurrentLine
+FixNamespaceComments: true
+SeparateDefinitionBlocks: Leave
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+InsertNewlineAtEOF: true
+
+# Leave alone what is written by hand: comments, long strings, include groups.
+ReflowComments: false
+BreakStringLiterals: false
+SortIncludes: Never

@@ -50,11 +50,17 @@ namespace {
 		}
 
 		~Microphone() override {
-			if (initialised_) ma_device_uninit(&device_); // stops the callbacks before `this` is gone
+			if (initialised_) {
+				ma_device_uninit(&device_); // stops the callbacks before `this` is gone
+			}
 		}
 
-		[[nodiscard]] bool  iq() const override { return false; }
-		[[nodiscard]] float sample_rate() const override { return static_cast<float>(rate); }
+		[[nodiscard]] bool iq() const override {
+			return false;
+		}
+		[[nodiscard]] float sample_rate() const override {
+			return static_cast<float>(rate);
+		}
 
 	private:
 		ma_device device_{};
@@ -65,6 +71,8 @@ namespace {
 
 std::unique_ptr<LiveInput> open_microphone(std::string& error) {
 	auto microphone = std::make_unique<Microphone>();
-	if (!microphone->open(error)) return nullptr;
+	if (!microphone->open(error)) {
+		return nullptr;
+	}
 	return microphone;
 }

@@ -9,7 +9,7 @@
 class GeneratorWindow {
 public:
 	static constexpr const char* title = "Generator";
-	bool open = true;
+	bool                         open = true;
 
 	void draw(Workspace& ws);
 

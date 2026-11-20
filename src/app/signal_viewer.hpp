@@ -22,7 +22,7 @@
 class SignalViewer {
 public:
 	static constexpr const char* title = "Signal Viewer";
-	bool open = true;
+	bool                         open = true;
 
 	void draw(Workspace& ws);
 
@@ -53,11 +53,11 @@ private:
 		double                start_seconds = 0.0;
 		double                max_seconds = 0.0; // 0 = all
 		std::uintmax_t        file_bytes = 0;
-		bool                  sigmf = false;     // format and rate come from the .sigmf-meta
+		bool                  sigmf = false; // format and rate come from the .sigmf-meta
 	};
 
 	enum class Pending { None, Load, Save, SaveSelection }; // what the file browser is open for
-	enum class Drag { Scrub, Select };                       // what a left-drag on a plot does
+	enum class Drag { Scrub, Select };                      // what a left-drag on a plot does
 
 	void on_signal_changed(const Workspace& ws);
 
@@ -65,6 +65,7 @@ private:
 	void draw_toolbar(Workspace& ws);
 	void draw_file_dialogs(Workspace& ws);
 	void draw_import_dialog(Workspace& ws);
+
 public:
 	// Loads a file (asks for details first if it needs them). Also used for files dropped on the window.
 	void begin_load(Workspace& ws, const std::filesystem::path& path);

@@ -18,14 +18,18 @@
 class DigitalWindow {
 public:
 	static constexpr const char* title = "Digital";
-	bool open = true;
+	bool                         open = true;
 
 	void draw(Workspace& ws);
 
 private:
 	void draw_settings(Workspace& ws);
 	void draw_identification(Workspace& ws);
-	void draw_constellation(const Workspace& ws, const TimeRange& range, const std::vector<std::complex<float>>& symbols);
+	void draw_constellation(
+		const Workspace&                        ws,
+		const TimeRange&                        range,
+		const std::vector<std::complex<float>>& symbols
+	);
 	void draw_eye(const sig::Signal& signal, const TimeRange& range);
 	void draw_bits(const std::vector<std::complex<float>>& symbols);
 
@@ -35,7 +39,7 @@ private:
 	sig::digital::Scheme   scheme_ = sig::digital::Scheme::BPSK;
 	sig::digital::LineCode line_code_ = sig::digital::LineCode::NRZ;
 	sig::digital::Timing   timing_;
-	int                    symbols_ = 100;  // how many symbols around the playhead (without a selection)
+	int                    symbols_ = 100; // how many symbols around the playhead (without a selection)
 	bool                   all_samples_ = true;
 	int                    eye_channel_ = 0; // 0 = I, 1 = Q
 	bool                   follow_ = false;  // carrier and timing recovery

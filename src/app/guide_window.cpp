@@ -33,25 +33,36 @@ namespace {
 	}
 
 	// view_seconds: how much the scope shows at first (0 = the generator's choice).
-	void generate(Workspace& ws, const sig::generator::Settings& settings, const char* name, float view_seconds = 0.0f) {
+	void generate(
+		Workspace&                      ws,
+		const sig::generator::Settings& settings,
+		const char*                     name,
+		float                           view_seconds = 0.0f
+	) {
 		auto signal = sig::generator::synthesize(settings);
-		if (!signal) return;
+		if (!signal) {
+			return;
+		}
 		signal->name = name;
-		if (view_seconds > 0.0f) signal->default_view_seconds = view_seconds;
+		if (view_seconds > 0.0f) {
+			signal->default_view_seconds = view_seconds;
+		}
 		ws.add_and_select(std::move(*signal));
 	}
 
 	void aliasing_demo(Workspace& ws) {
 		sig::generator::Settings s;
-		s.sample_rate = 8000.0f; // can hold up to 4 kHz...
-		s.frequency = 7000.0f;   // ...so a 7 kHz tone does not fit
+		s.sample_rate = 8000.0f;                                // can hold up to 4 kHz...
+		s.frequency = 7000.0f;                                  // ...so a 7 kHz tone does not fit
 		generate(ws, s, "7 kHz tone sampled at 8 kHz", 0.004f); // 4 ms: four periods of the 1 kHz it turns into
 	}
 
 	void delay_demo(Workspace& ws) {
 		select_example(ws, "White noise");
 		auto later = sig::transform::trim(ws.signal(), 0.1, ws.signal().duration());
-		if (!later) return;
+		if (!later) {
+			return;
+		}
 		later->name = "White noise, starting 0.1 s later";
 		ws.add_and_select(std::move(*later));
 	}
@@ -212,11 +223,12 @@ namespace {
 
 	// Morse code: a tone switched on and off, hidden in noise so that only the spectrogram shows it.
 	sig::Signal morse_signal(std::string_view word) {
-		static const std::map<char, std::string_view> code{
-			{ 'E', "." }, { 'H', "...." }, { 'L', ".-.." }, { 'O', "---" }, { 'S', "..." }, { 'W', ".--" }, { 'A', ".-" }, { 'V', "...-" } };
-		constexpr double dot = 0.08;
-		std::vector<std::pair<double, double>> on; // seconds
-		double t = 0.3;
+		static const std::map<char, std::string_view> code{ { 'E', "." },   { 'H', "...." }, { 'L', ".-.." },
+			                                                { 'O', "---" }, { 'S', "..." },  { 'W', ".--" },
+			                                                { 'A', ".-" },  { 'V', "...-" } };
+		constexpr double                              dot = 0.08;
+		std::vector<std::pair<double, double>>        on; // seconds
+		double                                        t = 0.3;
 		for (const char letter : word) {
 			for (const char mark : code.at(letter)) {
 				const double length = mark == '.' ? dot : 3 * dot;
@@ -226,33 +238,49 @@ namespace {
 			t += 2 * dot; // 3 dots between letters
 		}
 		const double seconds = t + 0.3;
-		sig::Signal s = sig::generate("Puzzle: listen to the static", "A noisy recording. Is something hiding in it?", 8000.0f,
-			static_cast<float>(seconds), 0.02f, [&](double time) {
-				const bool keyed = std::ranges::any_of(on, [&](const auto& p) { return time >= p.first && time < p.second; });
+		sig::Signal  s = sig::generate(
+			"Puzzle: listen to the static",
+			"A noisy recording. Is something hiding in it?",
+			8000.0f,
+			static_cast<float>(seconds),
+			0.02f,
+			[&](double time) {
+				const bool keyed =
+					std::ranges::any_of(on, [&](const auto& p) { return time >= p.first && time < p.second; });
 				return keyed ? 0.12 * std::sin(sig::tau * 1250.0 * time) : 0.0;
-			});
+			}
+		);
 		// Noise at a fixed level, four times stronger than the tone: you hear static, the spectrogram sees more.
-		std::mt19937 rng{ 7 };
+		std::mt19937                    rng{ 7 };
 		std::normal_distribution<float> noise{ 0.0f, 0.25f };
-		for (float& v : s.channels[0]) v += noise(rng);
+		for (float& v : s.channels[0]) {
+			v += noise(rng);
+		}
 		return s;
 	}
 
 	sig::Signal hum_signal() {
-		std::mt19937 rng{ 3 };
+		std::mt19937                     rng{ 3 };
 		std::normal_distribution<double> noise{ 0.0, 0.02 };
-		return sig::generate("Puzzle: the humming recording", "A melody, and something else.", 8000.0f, 4.0f, 0.05f, [&](double t) {
-			const double melody = 0.3 * std::sin(sig::tau * (t < 2.0 ? 523.25 : 659.25) * t);
-			const double hum = 0.08 * std::sin(sig::tau * 60.0 * t) + 0.04 * std::sin(sig::tau * 180.0 * t);
-			return melody + hum + noise(rng);
-		});
+		return sig::generate(
+			"Puzzle: the humming recording",
+			"A melody, and something else.",
+			8000.0f,
+			4.0f,
+			0.05f,
+			[&](double t) {
+				const double melody = 0.3 * std::sin(sig::tau * (t < 2.0 ? 523.25 : 659.25) * t);
+				const double hum = 0.08 * std::sin(sig::tau * 60.0 * t) + 0.04 * std::sin(sig::tau * 180.0 * t);
+				return melody + hum + noise(rng);
+			}
+		);
 	}
 
 	// The same sound arriving at two microphones, the second one 23 ms later (7.9 m further away).
 	std::pair<sig::Signal, sig::Signal> microphones() {
-		std::mt19937 rng{ 5 };
+		std::mt19937                     rng{ 5 };
 		std::normal_distribution<double> noise{ 0.0, 0.2 };
-		std::vector<double> sound(16000);
+		std::vector<double>              sound(16000);
 		for (std::size_t n = 0; n < sound.size(); ++n) {
 			const double t = static_cast<double>(n) / 16000.0;
 			sound[n] = (t > 0.2 && t < 0.4) ? noise(rng) * std::sin(sig::tau * 3.0 * t) : 0.01 * noise(rng);
@@ -262,15 +290,31 @@ namespace {
 			return n >= 0 && n < static_cast<std::ptrdiff_t>(sound.size()) ? sound[static_cast<std::size_t>(n)] : 0.0;
 		};
 		return {
-			sig::generate("Puzzle: microphone 1", "A clap, heard by microphone 1.", 16000.0f, 1.0f, 0.05f, [&](double t) { return at(t, 0.0); }),
-			sig::generate("Puzzle: microphone 2", "The same clap, heard by microphone 2.", 16000.0f, 1.0f, 0.05f, [&](double t) { return 0.6 * at(t, 0.023); }),
+			sig::generate(
+				"Puzzle: microphone 1",
+				"A clap, heard by microphone 1.",
+				16000.0f,
+				1.0f,
+				0.05f,
+				[&](double t) { return at(t, 0.0); }
+			),
+			sig::generate(
+				"Puzzle: microphone 2",
+				"The same clap, heard by microphone 2.",
+				16000.0f,
+				1.0f,
+				0.05f,
+				[&](double t) { return 0.6 * at(t, 0.023); }
+			),
 		};
 	}
 
 	sig::Signal message_signal() {
 		std::string bits = "10101010101010101010101011001011"; // preamble, then the sync word 11001011
 		for (const char c : std::string_view("RADIO")) {
-			for (int b = 7; b >= 0; --b) bits += (c >> b) & 1 ? '1' : '0';
+			for (int b = 7; b >= 0; --b) {
+				bits += (c >> b) & 1 ? '1' : '0';
+			}
 		}
 		bits += "0000000000000000"; // a pause before it repeats
 		sig::generator::Settings s;
@@ -292,11 +336,19 @@ namespace {
 
 	// A plucked string whose second harmonic is louder than the note itself.
 	sig::Signal note_signal() {
-		return sig::generate("Puzzle: which note?", "A plucked string. Careful: the loudest frequency is not the note.", 44100.0f, 2.0f, 0.02f, [](double t) {
-			const double f = 196.0; // G3
-			const double decay = std::exp(-2.0 * t);
-			return decay * (0.25 * std::sin(sig::tau * f * t) + 0.5 * std::sin(sig::tau * 2 * f * t) + 0.2 * std::sin(sig::tau * 3 * f * t));
-		});
+		return sig::generate(
+			"Puzzle: which note?",
+			"A plucked string. Careful: the loudest frequency is not the note.",
+			44100.0f,
+			2.0f,
+			0.02f,
+			[](double t) {
+				const double f = 196.0; // G3
+				const double decay = std::exp(-2.0 * t);
+				return decay * (0.25 * std::sin(sig::tau * f * t) + 0.5 * std::sin(sig::tau * 2 * f * t) +
+			                    0.2 * std::sin(sig::tau * 3 * f * t));
+			}
+		);
 	}
 
 	struct Puzzle {
@@ -370,13 +422,17 @@ namespace {
 
 std::vector<std::string> GuideWindow::topics() {
 	std::vector<std::string> out;
-	for (const Lesson& lesson : lessons) out.emplace_back(lesson.title);
+	for (const Lesson& lesson : lessons) {
+		out.emplace_back(lesson.title);
+	}
 	return out;
 }
 
 std::vector<std::string> GuideWindow::puzzles() {
 	std::vector<std::string> out;
-	for (const Puzzle& puzzle : puzzle_list) out.emplace_back(puzzle.title);
+	for (const Puzzle& puzzle : puzzle_list) {
+		out.emplace_back(puzzle.title);
+	}
 	return out;
 }
 
@@ -397,7 +453,7 @@ void GuideWindow::draw_puzzles(Workspace& ws) {
 	ui::hint("Each puzzle adds a signal with something hidden in it. Use the app's windows to find it.");
 	for (int i = 0; i < static_cast<int>(puzzle_list.size()); ++i) {
 		const Puzzle& puzzle = puzzle_list[static_cast<std::size_t>(i)];
-		Attempt& attempt = attempts_[static_cast<std::size_t>(i)];
+		Attempt&      attempt = attempts_[static_cast<std::size_t>(i)];
 		ImGui::PushID(1000 + i);
 		if (open_puzzle_ == i) {
 			ImGui::SetNextItemOpen(true);
@@ -408,23 +464,42 @@ void GuideWindow::draw_puzzles(Workspace& ws) {
 		if (ImGui::CollapsingHeader(header.c_str())) {
 			ImGui::Indent();
 			ImGui::TextWrapped("%s", puzzle.question);
-			if (ImGui::Button("Get the signal")) puzzle.make(ws);
+			if (ImGui::Button("Get the signal")) {
+				puzzle.make(ws);
+			}
 			ImGui::SetNextItemWidth(ui::em(10.0f));
-			const bool entered = ImGui::InputTextWithHint("##answer", "your answer", &attempt.answer, ImGuiInputTextFlags_EnterReturnsTrue);
+			const bool entered = ImGui::InputTextWithHint(
+				"##answer",
+				"your answer",
+				&attempt.answer,
+				ImGuiInputTextFlags_EnterReturnsTrue
+			);
 			ImGui::SameLine();
 			if (ImGui::Button("Check") || entered) {
 				std::string clean = attempt.answer;
 				std::erase_if(clean, [](unsigned char c) { return std::isspace(c); });
-				std::ranges::transform(clean, clean.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+				std::ranges::transform(clean, clean.begin(), [](unsigned char c) {
+					return static_cast<char>(std::toupper(c));
+				});
 				attempt.solved = puzzle.check(clean);
 				++attempt.tries;
 			}
 			if (attempt.tries > 0) {
-				if (attempt.solved) ImGui::TextColored({ 0.4f, 1.0f, 0.5f, 1.0f }, "Correct! %s", puzzle.solution);
-				else ImGui::TextColored({ 1.0f, 0.6f, 0.4f, 1.0f }, "Not quite. Try again%s", attempt.hint ? "." : ", or ask for a hint.");
+				if (attempt.solved) {
+					ImGui::TextColored({ 0.4f, 1.0f, 0.5f, 1.0f }, "Correct! %s", puzzle.solution);
+				}
+				else {
+					ImGui::TextColored(
+						{ 1.0f, 0.6f, 0.4f, 1.0f },
+						"Not quite. Try again%s",
+						attempt.hint ? "." : ", or ask for a hint."
+					);
+				}
 			}
 			if (!attempt.solved) {
-				if (!attempt.hint && ImGui::SmallButton("Hint")) attempt.hint = true;
+				if (!attempt.hint && ImGui::SmallButton("Hint")) {
+					attempt.hint = true;
+				}
 				if (attempt.hint) {
 					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{ 0.5f, 0.9f, 0.5f, 1.0f });
 					ImGui::TextWrapped("%s", puzzle.hint);
@@ -446,16 +521,20 @@ void GuideWindow::draw_puzzles(Workspace& ws) {
 }
 
 void GuideWindow::draw(Workspace& ws) {
-	if (!open) return;
+	if (!open) {
+		return;
+	}
 	ImGui::SetNextWindowSize({ 450.0f, 600.0f }, ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(title, &open)) {
 		ImGui::End();
 		return;
 	}
 
-	ui::hint("New to signals? Each topic explains one idea with an everyday comparison. "
+	ui::hint(
+		"New to signals? Each topic explains one idea with an everyday comparison. "
 		"\"Show me\" puts a fitting signal in the viewer and says where to look. "
-		"Hover any (?) in the other windows for a quick explanation.");
+		"Hover any (?) in the other windows for a quick explanation."
+	);
 	ImGui::Spacing();
 
 	for (int i = 0; i < static_cast<int>(lessons.size()); ++i) {

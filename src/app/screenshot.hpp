@@ -40,17 +40,23 @@ namespace screenshot {
 		return message;
 	}
 
-	inline void request(ImVec2 min, ImVec2 max, std::filesystem::path path) { pending() = Request{ min, max, std::move(path) }; }
+	inline void request(ImVec2 min, ImVec2 max, std::filesystem::path path) {
+		pending() = Request{ min, max, std::move(path) };
+	}
 
 	// Call after the frame has been drawn (after rlImGuiEnd, before EndDrawing).
 	inline void process() {
 		auto& request = pending();
-		if (!request || --request->frames_to_wait > 0) return;
+		if (!request || --request->frames_to_wait > 0) {
+			return;
+		}
 
-		const Vector2 scale = GetWindowScaleDPI(); // screen pixels per ImGui unit
-		Image image = LoadImageFromScreen();
-		const Rectangle area{ request->min.x * scale.x, request->min.y * scale.y,
-			(request->max.x - request->min.x) * scale.x, (request->max.y - request->min.y) * scale.y };
+		const Vector2   scale = GetWindowScaleDPI(); // screen pixels per ImGui unit
+		Image           image = LoadImageFromScreen();
+		const Rectangle area{ request->min.x * scale.x,
+			                  request->min.y * scale.y,
+			                  (request->max.x - request->min.x) * scale.x,
+			                  (request->max.y - request->min.y) * scale.y };
 		ImageCrop(&image, area);
 		const bool ok = ExportImage(image, request->path.string().c_str());
 		UnloadImage(image);
@@ -65,7 +71,9 @@ class PlotExport {
 public:
 	// A small "PNG" button; opens a save dialog.
 	void button(std::string suggested_name) {
-		if (ImGui::SmallButton("Save PNG...")) browser_.open(FileBrowser::Mode::Save, { ".png" }, "Saves the plot as it looks now.", suggested_name);
+		if (ImGui::SmallButton("Save PNG...")) {
+			browser_.open(FileBrowser::Mode::Save, { ".png" }, "Saves the plot as it looks now.", suggested_name);
+		}
 	}
 
 	// Call right after the plot (ImPlot::EndPlot) to remember where it is on screen.
@@ -76,7 +84,9 @@ public:
 
 	void draw() {
 		if (auto path = browser_.draw()) {
-			if (path->extension() != ".png") *path += ".png";
+			if (path->extension() != ".png") {
+				*path += ".png";
+			}
 			screenshot::request(min_, max_, std::move(*path));
 		}
 	}

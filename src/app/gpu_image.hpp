@@ -11,7 +11,9 @@
 class GpuImage {
 public:
 	GpuImage() = default;
-	~GpuImage() { release(); }
+	~GpuImage() {
+		release();
+	}
 
 	GpuImage(const GpuImage&) = delete;
 	GpuImage& operator=(const GpuImage&) = delete;
@@ -30,14 +32,20 @@ public:
 		SetTextureFilter(texture_, TEXTURE_FILTER_BILINEAR);
 	}
 
-	[[nodiscard]] bool valid() const { return texture_.id != 0; }
+	[[nodiscard]] bool valid() const {
+		return texture_.id != 0;
+	}
 
 	// rlImGui identifies textures by their OpenGL id.
-	[[nodiscard]] ImTextureID id() const { return reinterpret_cast<ImTextureID>(static_cast<std::uintptr_t>(texture_.id)); }
+	[[nodiscard]] ImTextureID id() const {
+		return reinterpret_cast<ImTextureID>(static_cast<std::uintptr_t>(texture_.id));
+	}
 
 private:
 	void release() {
-		if (valid()) UnloadTexture(texture_);
+		if (valid()) {
+			UnloadTexture(texture_);
+		}
 		texture_ = {};
 	}
 

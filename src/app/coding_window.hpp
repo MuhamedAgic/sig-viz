@@ -15,7 +15,7 @@
 class CodingWindow {
 public:
 	static constexpr const char* title = "Error correction";
-	bool open = true;
+	bool                         open = true;
 
 	void draw(Workspace& ws);
 
@@ -25,27 +25,27 @@ private:
 
 	// Everything the result depends on; a change starts a new run.
 	struct Inputs {
-		MessageSource                     source = MessageSource::Text;
-		std::string                       text;
-		int                               random_bits = 2000;
-		unsigned                          seed = 1;
-		sig::coding::CodeSpec             code;
-		sig::coding::InterleaverSpec      interleaver;
-		std::vector<sig::coding::Damage>  damage;
-		Channel                           channel = Channel::Bits;
-		TrackPtr                          signal;
-		sig::link::Settings               link;
+		MessageSource                    source = MessageSource::Text;
+		std::string                      text;
+		int                              random_bits = 2000;
+		unsigned                         seed = 1;
+		sig::coding::CodeSpec            code;
+		sig::coding::InterleaverSpec     interleaver;
+		std::vector<sig::coding::Damage> damage;
+		Channel                          channel = Channel::Bits;
+		TrackPtr                         signal;
+		sig::link::Settings              link;
 
 		bool operator==(const Inputs&) const = default;
 	};
 
 	struct Outcome {
-		Inputs                                  inputs;
+		Inputs                                   inputs;
 		std::optional<sig::coding::Transmission> tx;
 		std::optional<sig::coding::Reception>    rx;
 		std::optional<sig::coding::Reception>    uncoded; // the same damage without the code, to compare
-		bool                                    inverted = false;
-		std::string                             error;
+		bool                                     inverted = false;
+		std::string                              error;
 	};
 
 	struct Curve {
@@ -53,7 +53,7 @@ private:
 		std::vector<sig::coding::CurvePoint> points;
 	};
 
-	[[nodiscard]] Inputs inputs(const Workspace& ws) const;
+	[[nodiscard]] Inputs         inputs(const Workspace& ws) const;
 	[[nodiscard]] static Outcome run(Inputs in);
 
 	void draw_message();
@@ -69,12 +69,13 @@ private:
 	// Settings
 	MessageSource                    source_ = MessageSource::Text;
 	std::string                      text_ = "Hello from sig-viz! Polar codes repair the bits a noisy channel breaks, "
-		"and the interleaver spreads bursts of errors so that no codeword gets too many.";
+											 "and the interleaver spreads bursts of errors so that no codeword gets too many.";
 	int                              random_bits_ = 2000;
 	unsigned                         seed_ = 1;
 	sig::coding::CodeSpec            code_;
 	sig::coding::InterleaverSpec     interleaver_;
-	std::vector<sig::coding::Damage> damage_{ sig::coding::Damage{ .pattern = sig::coding::Pattern::Burst, .effect = sig::coding::Effect::FlipHard } };
+	std::vector<sig::coding::Damage> damage_{ sig::coding::Damage{ .pattern = sig::coding::Pattern::Burst,
+		                                                           .effect = sig::coding::Effect::FlipHard } };
 	Channel                          channel_ = Channel::Bits;
 	sig::link::Settings              link_;
 	std::string                      make_error_;
@@ -86,8 +87,8 @@ private:
 
 	// Error-rate curve
 	Background<std::vector<sig::coding::CurvePoint>> curve_job_;
-	std::string        curve_label_;
-	std::vector<Curve> curves_;
-	float              curve_from_ = 0.0f, curve_to_ = 5.0f, curve_step_ = 0.5f;
-	int                curve_frames_ = 2000;
+	std::string                                      curve_label_;
+	std::vector<Curve>                               curves_;
+	float                                            curve_from_ = 0.0f, curve_to_ = 5.0f, curve_step_ = 0.5f;
+	int                                              curve_frames_ = 2000;
 };

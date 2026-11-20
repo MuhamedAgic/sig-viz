@@ -39,8 +39,16 @@ namespace sig::fft {
 	inline void inverse(std::span<Complex> data) {
 		const pocketfft::shape_t  shape{ data.size() };
 		const pocketfft::stride_t stride{ sizeof(Complex) };
-		pocketfft::c2c(shape, stride, stride, { 0 }, pocketfft::BACKWARD, data.data(), data.data(),
-			1.0f / static_cast<float>(data.size()));
+		pocketfft::c2c(
+			shape,
+			stride,
+			stride,
+			{ 0 },
+			pocketfft::BACKWARD,
+			data.data(),
+			data.data(),
+			1.0f / static_cast<float>(data.size())
+		);
 	}
 
 	// ---- windows ----------------------------------------------------------------------------------
@@ -77,14 +85,14 @@ namespace sig::fft {
 		std::vector<float> out(size);
 		for (std::size_t n = 0; n < size; ++n) {
 			const double x = tau * static_cast<double>(n) / static_cast<double>(size);
-			double w = 1.0;
+			double       w = 1.0;
 			switch (window) {
 			case Window::Rectangular: break;
 			case Window::Hann:        w = 0.5 - 0.5 * std::cos(x); break;
 			case Window::Blackman:    w = 0.42 - 0.5 * std::cos(x) + 0.08 * std::cos(2 * x); break;
 			case Window::FlatTop:
-				w = 0.21557895 - 0.41663158 * std::cos(x) + 0.277263158 * std::cos(2 * x)
-					- 0.083578947 * std::cos(3 * x) + 0.006947368 * std::cos(4 * x);
+				w = 0.21557895 - 0.41663158 * std::cos(x) + 0.277263158 * std::cos(2 * x) -
+				    0.083578947 * std::cos(3 * x) + 0.006947368 * std::cos(4 * x);
 				break;
 			}
 			out[n] = static_cast<float>(w);
@@ -99,10 +107,12 @@ namespace sig::fft {
 	//   I/Q signals:  size bins, from -rate/2 up to just below +rate/2 (negative frequencies exist for I/Q)
 	struct Spectrum {
 		std::vector<float> power;
-		double first_hz = 0.0; // frequency of power[0]
-		double bin_hz = 1.0;   // spacing between bins
+		double             first_hz = 0.0; // frequency of power[0]
+		double             bin_hz = 1.0;   // spacing between bins
 
-		[[nodiscard]] double hz(double bin) const { return first_hz + bin * bin_hz; }
+		[[nodiscard]] double hz(double bin) const {
+			return first_hz + bin * bin_hz;
+		}
 	};
 
 	// Computes spectra of `size`-sample blocks of a signal. Keeps its window and scratch buffer,
@@ -110,15 +120,26 @@ namespace sig::fft {
 	class Analyzer {
 	public:
 		Analyzer(std::size_t size, Window window)
-			: size_{ size }, window_kind_{ window }, window_{ make_window(window, size) }, buffer_(size) {
+			: size_{ size }
+			, window_kind_{ window }
+			, window_{ make_window(window, size) }
+			, buffer_(size) {
 			double sum = 0.0;
-			for (const float w : window_) sum += w;
+			for (const float w : window_) {
+				sum += w;
+			}
 			window_sum_ = static_cast<float>(sum);
 		}
 
-		[[nodiscard]] std::size_t size() const { return size_; }
-		[[nodiscard]] Window      window() const { return window_kind_; }
-		[[nodiscard]] std::size_t bins(const Signal& signal) const { return signal.is_iq() ? size_ : size_ / 2 + 1; }
+		[[nodiscard]] std::size_t size() const {
+			return size_;
+		}
+		[[nodiscard]] Window window() const {
+			return window_kind_;
+		}
+		[[nodiscard]] std::size_t bins(const Signal& signal) const {
+			return signal.is_iq() ? size_ : size_ / 2 + 1;
+		}
 
 		// Adds the power spectrum of the block starting at frame `start` to `out` (bins(signal) long).
 		// Samples outside the signal count as silence. Adding (instead of overwriting) makes averaging easy.
@@ -146,25 +167,34 @@ namespace sig::fft {
 		//
 		// Why average? Like stacking several photos of the same scene: what is really there (tones) stays,
 		// the random grain (noise) evens out, so the noise floor becomes smooth and quiet tones show up.
-		[[nodiscard]] Spectrum average(const Signal& signal, std::size_t begin, std::size_t end, std::size_t max_blocks = 64) {
+		[[nodiscard]] Spectrum average(
+			const Signal& signal,
+			std::size_t   begin,
+			std::size_t   end,
+			std::size_t   max_blocks = 64
+		) {
 			Spectrum result{
 				.power = std::vector<float>(bins(signal)),
 				.first_hz = signal.is_iq() ? -static_cast<double>(size_ / 2) * signal.sample_rate / size_ : 0.0,
 				.bin_hz = signal.sample_rate / static_cast<double>(size_),
 			};
 
-			const auto length = static_cast<std::ptrdiff_t>(end > begin ? end - begin : 0);
-			const auto block = static_cast<std::ptrdiff_t>(size_);
-			const std::size_t wanted = length > block ? 1 + static_cast<std::size_t>((length - block) / (block / 2)) : 1;
+			const auto        length = static_cast<std::ptrdiff_t>(end > begin ? end - begin : 0);
+			const auto        block = static_cast<std::ptrdiff_t>(size_);
+			const std::size_t wanted =
+				length > block ? 1 + static_cast<std::size_t>((length - block) / (block / 2)) : 1;
 			const std::size_t blocks = std::clamp<std::size_t>(wanted, 1, max_blocks);
 
 			for (std::size_t b = 0; b < blocks; ++b) {
-				const std::ptrdiff_t start = blocks == 1
-					? static_cast<std::ptrdiff_t>(begin) + (length - block) / 2
-					: static_cast<std::ptrdiff_t>(begin) + static_cast<std::ptrdiff_t>(b) * (length - block) / static_cast<std::ptrdiff_t>(blocks - 1);
+				const std::ptrdiff_t start = blocks == 1 ? static_cast<std::ptrdiff_t>(begin) + (length - block) / 2
+				                                         : static_cast<std::ptrdiff_t>(begin) +
+				                                               static_cast<std::ptrdiff_t>(b) * (length - block) /
+				                                                   static_cast<std::ptrdiff_t>(blocks - 1);
 				accumulate(signal, start, result.power);
 			}
-			for (float& p : result.power) p /= static_cast<float>(blocks);
+			for (float& p : result.power) {
+				p /= static_cast<float>(blocks);
+			}
 			return result;
 		}
 

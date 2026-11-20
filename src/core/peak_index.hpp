@@ -35,8 +35,12 @@ namespace sig {
 			max = std::max(max, other.max);
 		}
 
-		[[nodiscard]] bool  empty() const { return min > max; }
-		[[nodiscard]] float peak() const { return empty() ? 0.0f : std::max(std::abs(min), std::abs(max)); }
+		[[nodiscard]] bool empty() const {
+			return min > max;
+		}
+		[[nodiscard]] float peak() const {
+			return empty() ? 0.0f : std::max(std::abs(min), std::abs(max));
+		}
 	};
 
 	class PeakIndex {
@@ -47,37 +51,50 @@ namespace sig {
 
 		explicit PeakIndex(std::span<const float> samples) : samples_{ samples } {
 			blocks_.reserve(samples.size() / block_size + 1);
-			for (std::size_t begin = 0; begin < samples.size(); begin += block_size)
+			for (std::size_t begin = 0; begin < samples.size(); begin += block_size) {
 				blocks_.push_back(scan(begin, std::min(begin + block_size, samples.size())));
+			}
 		}
 
-		[[nodiscard]] std::span<const float> samples() const { return samples_; }
+		[[nodiscard]] std::span<const float> samples() const {
+			return samples_;
+		}
 
 		// Extremes of samples [begin, end). `end` is clamped to the number of samples.
 		[[nodiscard]] MinMax range(std::size_t begin, std::size_t end) const {
 			end = std::min(end, samples_.size());
-			if (begin >= end) return {};
+			if (begin >= end) {
+				return {};
+			}
 
 			const std::size_t first_block = (begin + block_size - 1) / block_size; // first block entirely inside
 			const std::size_t last_block = end / block_size;                       // one past the last one
-			if (first_block >= last_block) return scan(begin, end);                // too short to contain a block
+			if (first_block >= last_block) {
+				return scan(begin, end); // too short to contain a block
+			}
 
 			MinMax result = scan(begin, first_block * block_size);
-			for (std::size_t b = first_block; b < last_block; ++b) result.add(blocks_[b]);
+			for (std::size_t b = first_block; b < last_block; ++b) {
+				result.add(blocks_[b]);
+			}
 			result.add(scan(last_block * block_size, end));
 			return result;
 		}
 
 		[[nodiscard]] MinMax all() const {
 			MinMax result;
-			for (const MinMax& block : blocks_) result.add(block);
+			for (const MinMax& block : blocks_) {
+				result.add(block);
+			}
 			return result;
 		}
 
 	private:
 		[[nodiscard]] MinMax scan(std::size_t begin, std::size_t end) const {
 			MinMax result;
-			for (const float v : samples_.subspan(begin, end - begin)) result.add(v);
+			for (const float v : samples_.subspan(begin, end - begin)) {
+				result.add(v);
+			}
 			return result;
 		}
 

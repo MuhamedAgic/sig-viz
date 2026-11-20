@@ -45,7 +45,7 @@ namespace sig::audio {
 	[[nodiscard]] inline std::span<const Listen> listen_options(Layout layout) {
 		static constexpr std::array real{ Listen::Signal };
 		static constexpr std::array iq{ Listen::I, Listen::Q, Listen::Am, Listen::Fm };
-		return layout == Layout::IQ ? std::span<const Listen>{iq} : std::span<const Listen>{ real };
+		return layout == Layout::IQ ? std::span<const Listen>{ iq } : std::span<const Listen>{ real };
 	}
 
 	struct Params {
@@ -66,7 +66,9 @@ namespace sig::audio {
 		}
 
 		// Time of the next sample that will be rendered. It runs ahead of what is audible by whatever is buffered.
-		[[nodiscard]] double cursor_seconds(const Signal& signal) const { return cursor_ / signal.sample_rate; }
+		[[nodiscard]] double cursor_seconds(const Signal& signal) const {
+			return cursor_ / signal.sample_rate;
+		}
 
 		// Fills `out` with mono samples at `out_rate` Hz and advances the cursor.
 		void render(const Signal& signal, const Params& params, double out_rate, std::span<float> out) {
@@ -80,16 +82,26 @@ namespace sig::audio {
 			const double step = signal.sample_rate * params.speed / out_rate; // source samples per output sample
 
 			// The looped part [lo, hi), in source samples.
-			const auto lo = static_cast<std::int64_t>(std::clamp(params.loop_begin * signal.sample_rate, 0.0, static_cast<double>(frames - 1)));
-			const auto hi = static_cast<std::int64_t>(std::clamp(params.loop_end * signal.sample_rate, static_cast<double>(lo + 1), static_cast<double>(frames)));
+			const auto lo = static_cast<std::int64_t>(
+				std::clamp(params.loop_begin * signal.sample_rate, 0.0, static_cast<double>(frames - 1))
+			);
+			const auto hi = static_cast<std::int64_t>(std::clamp(
+				params.loop_end * signal.sample_rate,
+				static_cast<double>(lo + 1),
+				static_cast<double>(frames)
+			));
 
 			// Value of the (possibly demodulated) signal at source index i; wraps when looping.
 			const auto value_at = [&](std::int64_t i) -> float {
-				if (params.loop && i >= hi) i = lo + (i - lo) % (hi - lo);
-				if (i < 0 || i >= frames) return 0.0f;
+				if (params.loop && i >= hi) {
+					i = lo + (i - lo) % (hi - lo);
+				}
+				if (i < 0 || i >= frames) {
+					return 0.0f;
+				}
 				const std::int64_t prev = i > 0 ? i - 1 : 0;
 				return sample(signal, listen, static_cast<std::size_t>(i), static_cast<std::size_t>(prev));
-				};
+			};
 
 			for (float& o : out) {
 				if (!params.loop && cursor_ >= static_cast<double>(frames)) {
@@ -98,7 +110,7 @@ namespace sig::audio {
 				}
 
 				const auto base = static_cast<std::int64_t>(std::floor(cursor_));
-				float v = 0.0f;
+				float      v = 0.0f;
 				if (step <= 1.0) {
 					// Source rate <= output rate: interpolate between the two neighbouring samples.
 					const auto frac = static_cast<float>(cursor_ - static_cast<double>(base));
@@ -108,23 +120,31 @@ namespace sig::audio {
 					// Source rate > output rate: average everything this output sample covers.
 					const auto end = static_cast<std::int64_t>(std::floor(cursor_ + step));
 					const auto count = std::max<std::int64_t>(end - base, 1);
-					float sum = 0.0f;
-					for (std::int64_t k = 0; k < count; ++k) sum += value_at(base + k);
+					float      sum = 0.0f;
+					for (std::int64_t k = 0; k < count; ++k) {
+						sum += value_at(base + k);
+					}
 					v = sum / static_cast<float>(count);
 				}
 
-				if (listen == Listen::Am) v = block_dc(v);
+				if (listen == Listen::Am) {
+					v = block_dc(v);
+				}
 				o = std::clamp(v, -1.0f, 1.0f);
 
 				cursor_ += step;
-				if (params.loop && cursor_ >= static_cast<double>(hi))
-					cursor_ = static_cast<double>(lo) + std::fmod(cursor_ - static_cast<double>(lo), static_cast<double>(hi - lo));
+				if (params.loop && cursor_ >= static_cast<double>(hi)) {
+					cursor_ = static_cast<double>(lo) +
+					          std::fmod(cursor_ - static_cast<double>(lo), static_cast<double>(hi - lo));
+				}
 			}
 		}
 
 	private:
 		[[nodiscard]] static Listen effective_listen(const Signal& signal, Listen wanted) {
-			if (signal.layout != Layout::IQ || signal.channels.size() < 2) return Listen::Signal;
+			if (signal.layout != Layout::IQ || signal.channels.size() < 2) {
+				return Listen::Signal;
+			}
 			return wanted == Listen::Signal ? Listen::I : wanted;
 		}
 
@@ -132,10 +152,10 @@ namespace sig::audio {
 			const auto& ch0 = signal.channels[0];
 			switch (listen) {
 			case Listen::Signal:
-			case Listen::I:  return ch0[i];
-			case Listen::Q:  return signal.channels[1][i];
-			case Listen::Am: return std::hypot(ch0[i], signal.channels[1][i]);
-			case Listen::Fm: {
+			case Listen::I:      return ch0[i];
+			case Listen::Q:      return signal.channels[1][i];
+			case Listen::Am:     return std::hypot(ch0[i], signal.channels[1][i]);
+			case Listen::Fm:     {
 				// z[n] * conj(z[n-1]) has the phase step between the two samples, in (-pi, pi].
 				const auto& ch1 = signal.channels[1];
 				const float re = ch0[i] * ch0[prev] + ch1[i] * ch1[prev];

@@ -24,7 +24,9 @@ public:
 	static constexpr int      chunk_frames = 2048; // 43 ms; two of them are queued at any time
 
 	AudioOutput() {
-		if (!IsAudioDeviceReady()) return; // no sound card: stay silent, the rest of the app still works
+		if (!IsAudioDeviceReady()) {
+			return; // no sound card: stay silent, the rest of the app still works
+		}
 
 		SetAudioStreamBufferSizeDefault(chunk_frames);
 		stream_ = LoadAudioStream(sample_rate, 32, 1); // 32 bit = float samples, mono
@@ -32,7 +34,9 @@ public:
 	}
 
 	~AudioOutput() {
-		if (!ready_) return;
+		if (!ready_) {
+			return;
+		}
 		stop();
 		UnloadAudioStream(stream_);
 	}
@@ -40,14 +44,20 @@ public:
 	AudioOutput(const AudioOutput&) = delete;
 	AudioOutput& operator=(const AudioOutput&) = delete;
 
-	[[nodiscard]] bool available() const { return ready_; }
+	[[nodiscard]] bool available() const {
+		return ready_;
+	}
 
 	// Call every frame while the signal should be audible. The sound follows `playhead` (seconds):
 	// when the UI jumps (scrub, loop) the audio jumps with it.
 	void play(const sig::Signal& signal, double playhead, const sig::audio::Params& params, float volume) {
-		if (!ready_) return;
+		if (!ready_) {
+			return;
+		}
 
-		if (playing_ && out_of_sync(signal, playhead, params)) stop();
+		if (playing_ && out_of_sync(signal, playhead, params)) {
+			stop();
+		}
 
 		if (!playing_) {
 			renderer_.seek(signal, playhead);
@@ -57,7 +67,9 @@ public:
 			playing_ = true;
 		}
 		else {
-			for (int i = 0; i < 2 && IsAudioStreamProcessed(stream_); ++i) fill(signal, params);
+			for (int i = 0; i < 2 && IsAudioStreamProcessed(stream_); ++i) {
+				fill(signal, params);
+			}
 		}
 
 		SetAudioStreamVolume(stream_, volume);
@@ -65,7 +77,9 @@ public:
 
 	// Silence immediately (drops what is buffered). Call every frame it should not be audible; it is cheap.
 	void stop() {
-		if (!playing_) return;
+		if (!playing_) {
+			return;
+		}
 		StopAudioStream(stream_);
 		playing_ = false;
 	}
@@ -74,9 +88,12 @@ private:
 	// The render cursor legitimately runs ahead of the playhead by what is buffered (up to ~85 ms
 	// of audio, which is more source time at higher speeds), so only react to bigger differences.
 	[[nodiscard]] bool out_of_sync(const sig::Signal& signal, double playhead, const sig::audio::Params& params) const {
-		double error = renderer_.cursor_seconds(signal) - playhead;
-		const double loop_length = std::min(params.loop_end, static_cast<double>(signal.duration())) - std::max(params.loop_begin, 0.0);
-		if (params.loop && loop_length > 0.0) error = std::remainder(error, loop_length); // shortest way round
+		double       error = renderer_.cursor_seconds(signal) - playhead;
+		const double loop_length =
+			std::min(params.loop_end, static_cast<double>(signal.duration())) - std::max(params.loop_begin, 0.0);
+		if (params.loop && loop_length > 0.0) {
+			error = std::remainder(error, loop_length); // shortest way round
+		}
 		return std::abs(error) > 0.1 + 0.15 * params.speed;
 	}
 

@@ -22,7 +22,7 @@
 class TransformWindow {
 public:
 	static constexpr const char* title = "Transform";
-	bool open = true;
+	bool                         open = true;
 
 	void draw(Workspace& ws);
 
@@ -59,24 +59,24 @@ private:
 	std::string       error_;
 
 	// Live preview
-	Background<Preview>      preview_job_;
-	std::optional<Preview>   preview_;
-	sig::recipe::Step        wanted_step_;   // what the preview should show (changes while dragging a slider)
-	TrackPtr                 wanted_input_;
-	std::optional<Preview>   requested_;     // input and step of the running (or last) preview job
-	double                   changed_at_ = 0.0; // ImGui time of the last change: wait until the slider rests
-	bool                     apply_when_ready_ = false;
-	bool                     hear_result_ = false; // A/B: hear the preview instead of the original
+	Background<Preview>    preview_job_;
+	std::optional<Preview> preview_;
+	sig::recipe::Step      wanted_step_; // what the preview should show (changes while dragging a slider)
+	TrackPtr               wanted_input_;
+	std::optional<Preview> requested_;        // input and step of the running (or last) preview job
+	double                 changed_at_ = 0.0; // ImGui time of the last change: wait until the slider rests
+	bool                   apply_when_ready_ = false;
+	bool                   hear_result_ = false; // A/B: hear the preview instead of the original
 
 	// Recipes
 	Background<sig::transform::Result> recipe_job_;
-	TrackPtr                       recipe_target_; // what the running recipe is applied to
-	std::vector<sig::recipe::Step> recipe_steps_;
-	std::vector<sig::recipe::Step> loaded_recipe_;
-	std::string                    loaded_name_;
-	TrackPtr                       run_on_;
-	FileBrowser                    browser_;
+	TrackPtr                           recipe_target_; // what the running recipe is applied to
+	std::vector<sig::recipe::Step>     recipe_steps_;
+	std::vector<sig::recipe::Step>     loaded_recipe_;
+	std::string                        loaded_name_;
+	TrackPtr                           run_on_;
+	FileBrowser                        browser_;
 	enum class Pending { None, Save, Load } pending_ = Pending::None;
-	std::string                    recipe_status_;
-	bool                           recipe_failed_ = false;
+	std::string recipe_status_;
+	bool        recipe_failed_ = false;
 };

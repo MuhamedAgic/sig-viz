@@ -25,9 +25,8 @@ namespace tips {
 	inline constexpr const char* peak = "The single largest sample. Must stay below 0 dBFS, or the signal clips.";
 	inline constexpr const char* dc =
 		"The average value. Should be about 0: a signal that is shifted up or down wastes headroom.";
-	inline constexpr const char* crest =
-		"How much higher the peaks are than the average (peak / RMS).\n"
-		"Sine: 3 dB.  Square: 0 dB.  Speech or a drum: 15+ dB (short, sharp peaks).";
+	inline constexpr const char* crest = "How much higher the peaks are than the average (peak / RMS).\n"
+										 "Sine: 3 dB.  Square: 0 dB.  Speech or a drum: 15+ dB (short, sharp peaks).";
 	inline constexpr const char* strongest =
 		"The loudest frequency, measured more precisely than the bar spacing by looking at its neighbours.";
 	inline constexpr const char* snr =
@@ -42,14 +41,13 @@ namespace tips {
 		"Small: sharp in time (clicks stay short) but blurry in frequency.\n"
 		"Large: sharp in frequency but blurry in time. You cannot have both: that is the uncertainty principle.";
 	inline constexpr const char* db_range = "Levels below the first number are darkest, above the second brightest. "
-		"Lower the first to see quiet details, raise it to hide the noise.";
+											"Lower the first to see quiet details, raise it to hide the noise.";
 
 	// ---- digital ----
-	inline constexpr const char* scheme =
-		"How bits become symbols.\n"
-		"OOK: carrier on = 1, off = 0 (like Morse code with a flashlight).\n"
-		"BPSK: the wave is flipped upside down for a 1. 1 bit per symbol.\n"
-		"QPSK: four phases, 2 bits per symbol: I carries one bit, Q the other.";
+	inline constexpr const char* scheme = "How bits become symbols.\n"
+										  "OOK: carrier on = 1, off = 0 (like Morse code with a flashlight).\n"
+										  "BPSK: the wave is flipped upside down for a 1. 1 bit per symbol.\n"
+										  "QPSK: four phases, 2 bits per symbol: I carries one bit, Q the other.";
 	inline constexpr const char* symbol_rate =
 		"Symbols per second (baud). Must match the transmitter, like knowing the tempo before you can count beats.";
 	inline constexpr const char* timing =
@@ -71,26 +69,25 @@ namespace tips {
 	inline constexpr const char* iq =
 		"Real: one number per sample. I/Q: two (I and Q), a point going round a circle. "
 		"With I/Q you can tell which way it turns, so +1 kHz and -1 kHz are different. See the Guide.";
-	inline constexpr const char* modulation =
-		"Putting a message on a carrier wave.\n"
-		"AM: the message changes how strong the carrier is (like a dimmer).\n"
-		"FM: it changes how fast it vibrates (like a siren).\n"
-		"Sweep: the frequency glides from one value to another (a chirp).";
+	inline constexpr const char* modulation = "Putting a message on a carrier wave.\n"
+											  "AM: the message changes how strong the carrier is (like a dimmer).\n"
+											  "FM: it changes how fast it vibrates (like a siren).\n"
+											  "Sweep: the frequency glides from one value to another (a chirp).";
 	inline constexpr const char* carrier = "The radio frequency the data rides on. 0 Hz = baseband: the data itself, "
-		"which is what the Digital window decodes.";
+										   "which is what the Digital window decodes.";
 
 	// ---- viewer / compare ----
-	inline constexpr const char* listen =
-		"An I/Q signal is not one sound, so pick what to hear:\n"
-		"I or Q: one of the two channels.\n"
-		"AM: how strong the signal is (its envelope).\n"
-		"FM: how fast its phase turns (its frequency).";
+	inline constexpr const char* listen = "An I/Q signal is not one sound, so pick what to hear:\n"
+										  "I or Q: one of the two channels.\n"
+										  "AM: how strong the signal is (its envelope).\n"
+										  "FM: how fast its phase turns (its frequency).";
 	inline constexpr const char* correlation =
 		"How alike the shapes of A and B are: 1 = identical (even at another volume), 0 = unrelated, -1 = mirror images.";
 	inline constexpr const char* auto_align =
 		"Slides B along A, like sliding a transparency over a drawing, and keeps the position where they "
 		"match best (cross-correlation). Finds delays.";
-	inline constexpr const char* difference = "What is left after subtracting B from A. Silence means they are identical.";
+	inline constexpr const char* difference =
+		"What is left after subtracting B from A. Silence means they are identical.";
 
 	inline constexpr const char* ab_listen =
 		"Switch between hearing the original (A) and the result (B) while it plays. Our ears forget quickly, "

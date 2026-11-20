@@ -19,8 +19,12 @@ namespace waveform {
 		}
 
 		[[nodiscard]] std::string format_time(double t, double step) {
-			if (step < 1e-3) return std::format("{:.4g}us", t * 1e6);
-			if (step < 1.0)  return std::format("{:.4g}ms", t * 1e3);
+			if (step < 1e-3) {
+				return std::format("{:.4g}us", t * 1e6);
+			}
+			if (step < 1.0) {
+				return std::format("{:.4g}ms", t * 1e3);
+			}
 			return std::format("{:.4g}s", t);
 		}
 
@@ -32,24 +36,31 @@ namespace waveform {
 			// Fractional sample position -> valid index (or one past the end).
 			const auto index = [&](double position) {
 				return static_cast<std::size_t>(std::clamp(position, 0.0, static_cast<double>(samples.size())));
-				};
+			};
 
 			if (per_px <= 1.0) {
 				// Zoomed in: connect the individual samples.
 				const std::size_t begin = index(std::floor(first));
 				const std::size_t end = index(std::ceil(first + c.width() * per_px) + 1.0);
-				if (end - begin < 2) return;
+				if (end - begin < 2) {
+					return;
+				}
 
-				for (std::size_t i = begin; i < end; ++i)
+				for (std::size_t i = begin; i < end; ++i) {
 					dl.PathLineTo({ c.x_at(static_cast<double>(i) / rate), c.y_at(samples[i]) });
+				}
 				dl.PathStroke(color, ImDrawFlags_None, 1.5f);
 			}
 			else {
 				// Zoomed out: one min-to-max line per pixel column, so no peak is ever skipped.
 				for (int px = 0; px < static_cast<int>(c.width()); ++px) {
-					const sig::MinMax range = peaks.range(index(std::floor(first + px * per_px)),
-						index(std::ceil(first + (px + 1) * per_px)));
-					if (range.empty()) continue;
+					const sig::MinMax range = peaks.range(
+						index(std::floor(first + px * per_px)),
+						index(std::ceil(first + (px + 1) * per_px))
+					);
+					if (range.empty()) {
+						continue;
+					}
 
 					const float x = c.min.x + static_cast<float>(px) + 0.5f;
 					dl.AddLine({ x, c.y_at(range.max) }, { x, c.y_at(range.min) + 1.0f }, color);
@@ -75,7 +86,9 @@ namespace waveform {
 
 		for (const float level : { -1.0f, -0.5f, 0.0f, 0.5f, 1.0f }) {
 			const float y = c.y_at(level);
-			if (y < c.min.y || y > c.max.y) continue;
+			if (y < c.min.y || y > c.max.y) {
+				continue;
+			}
 			dl.AddLine({ c.min.x, y }, { c.max.x, y }, level == 0.0f ? axis_col : grid_col);
 		}
 
@@ -95,8 +108,9 @@ namespace waveform {
 	void draw_traces(ImDrawList& dl, const Canvas& canvas, const Track& track, const Colors& colors) {
 		dl.PushClipRect(canvas.min, canvas.max, true);
 		const auto peaks = track.peaks();
-		for (std::size_t ch = 0; ch < peaks.size(); ++ch)
+		for (std::size_t ch = 0; ch < peaks.size(); ++ch) {
 			draw_trace(dl, canvas, peaks[ch], track.signal().sample_rate, colors[ch % colors.size()]);
+		}
 		dl.PopClipRect();
 	}
 
@@ -123,14 +137,18 @@ namespace waveform {
 
 	void draw_playhead(ImDrawList& dl, const Canvas& canvas, double t) {
 		const float x = canvas.x_at(t);
-		if (x < canvas.min.x || x > canvas.max.x) return;
+		if (x < canvas.min.x || x > canvas.max.x) {
+			return;
+		}
 		dl.AddLine({ x, canvas.min.y }, { x, canvas.max.y }, playhead_color, 2.0f);
 	}
 
 	void draw_selection(ImDrawList& dl, const Canvas& canvas, double begin, double end) {
 		const float x0 = std::clamp(canvas.x_at(begin), canvas.min.x, canvas.max.x);
 		const float x1 = std::clamp(canvas.x_at(end), canvas.min.x, canvas.max.x);
-		if (x1 <= x0) return;
+		if (x1 <= x0) {
+			return;
+		}
 		dl.AddRectFilled({ x0, canvas.min.y }, { x1, canvas.max.y }, IM_COL32(120, 160, 255, 45));
 		dl.AddLine({ x0, canvas.min.y }, { x0, canvas.max.y }, IM_COL32(120, 160, 255, 160));
 		dl.AddLine({ x1, canvas.min.y }, { x1, canvas.max.y }, IM_COL32(120, 160, 255, 160));
@@ -138,7 +156,9 @@ namespace waveform {
 
 	void draw_cursor(ImDrawList& dl, const Canvas& canvas, double t, const char* label) {
 		const float x = canvas.x_at(t);
-		if (x < canvas.min.x || x > canvas.max.x) return;
+		if (x < canvas.min.x || x > canvas.max.x) {
+			return;
+		}
 		dl.AddLine({ x, canvas.min.y }, { x, canvas.max.y }, cursor_color, 1.5f);
 		dl.AddText({ x + 3.0f, canvas.min.y + 2.0f }, cursor_color, label);
 	}

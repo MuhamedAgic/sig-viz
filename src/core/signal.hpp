@@ -28,16 +28,18 @@ namespace sig {
 	};
 
 	[[nodiscard]] constexpr std::string_view channel_label(Layout layout, std::size_t channel) {
-		if (layout == Layout::Real) return "";
+		if (layout == Layout::Real) {
+			return "";
+		}
 		return channel == 0 ? "I" : "Q";
 	}
 
 	struct Signal {
 		std::string name;
 		std::string description;
-		float  sample_rate;          // Hz (complex sample rate for I/Q)
-		float  default_view_seconds; // initial zoom of the scope
-		Layout layout;
+		float       sample_rate;          // Hz (complex sample rate for I/Q)
+		float       default_view_seconds; // initial zoom of the scope
+		Layout      layout;
 
 		// Planar storage, normalised to [-1, 1].
 		// Real: { samples }      IQ: { I, Q } (same length)
@@ -47,9 +49,15 @@ namespace sig {
 		// Hz on the dial. Frequency axes add it. 0 = not a radio recording (or not known).
 		double center_hz = 0.0;
 
-		[[nodiscard]] std::size_t frames() const { return channels.empty() ? 0 : channels.front().size(); }
-		[[nodiscard]] float duration() const { return static_cast<float>(frames()) / sample_rate; }
-		[[nodiscard]] bool  is_iq() const { return layout == Layout::IQ; }
+		[[nodiscard]] std::size_t frames() const {
+			return channels.empty() ? 0 : channels.front().size();
+		}
+		[[nodiscard]] float duration() const {
+			return static_cast<float>(frames()) / sample_rate;
+		}
+		[[nodiscard]] bool is_iq() const {
+			return layout == Layout::IQ;
+		}
 
 		// Sample i as a complex number: (x, 0) for a real signal, (I, Q) for an I/Q one.
 		// Lets algorithms treat both kinds the same way.
@@ -61,21 +69,26 @@ namespace sig {
 	// A formula fn(t) giving the sample at time t (seconds): either a real value or a complex
 	// baseband value.
 	template <typename Fn>
-	concept RealFormula = std::invocable<Fn&, double>
-		&& std::convertible_to<std::invoke_result_t<Fn&, double>, double>;
+	concept RealFormula = std::invocable<Fn&, double> && std::convertible_to<std::invoke_result_t<Fn&, double>, double>;
 
 	template <typename Fn>
-	concept IqFormula = std::invocable<Fn&, double>
-		&& std::same_as<std::invoke_result_t<Fn&, double>, std::complex<double>>;
+	concept IqFormula =
+		std::invocable<Fn&, double> && std::same_as<std::invoke_result_t<Fn&, double>, std::complex<double>>;
 
 	// Builds a signal by evaluating fn(t) at every sample time. A formula that returns
 	// std::complex<double> gives an I/Q signal, anything else a real one.
 	template <typename Fn>
 		requires RealFormula<Fn> || IqFormula<Fn>
-	[[nodiscard]] Signal generate(std::string name, std::string description,
-		float sample_rate, float seconds, float view_seconds, Fn fn) {
+	[[nodiscard]] Signal generate(
+		std::string name,
+		std::string description,
+		float       sample_rate,
+		float       seconds,
+		float       view_seconds,
+		Fn          fn
+	) {
 		constexpr bool iq = IqFormula<Fn>;
-		const auto count = static_cast<std::size_t>(sample_rate * seconds);
+		const auto     count = static_cast<std::size_t>(sample_rate * seconds);
 
 		std::vector<std::vector<float>> channels(iq ? 2 : 1, std::vector<float>(count));
 		for (std::size_t n = 0; n < count; ++n) {

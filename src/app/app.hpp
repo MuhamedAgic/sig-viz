@@ -29,12 +29,12 @@ public:
 	void draw();
 
 private:
-	void draw_menu_bar();
-	void draw_status_bar();
-	void take_dropped_files();
-	void draw_session_dialog();
+	void                               draw_menu_bar();
+	void                               draw_status_bar();
+	void                               take_dropped_files();
+	void                               draw_session_dialog();
 	[[nodiscard]] std::vector<Command> commands();
-	void build_default_layout(ImGuiID dockspace);
+	void                               build_default_layout(ImGuiID dockspace);
 	void show(bool& window_open, const char* title); // open a window and bring it to the front
 
 	Workspace ws_;
@@ -58,9 +58,9 @@ private:
 	enum class SessionAction { None, Save, Load } session_action_ = SessionAction::None;
 	std::string message_; // shown in the status bar
 
-	bool check_layout_ = true; // first frame: make the default layout, unless imgui.ini has one
+	bool check_layout_ = true;  // first frame: make the default layout, unless imgui.ini has one
 	bool reset_layout_ = false; // the user asked for the default layout
-	int  pick_tabs_in_ = 0;    // frames until the viewer's and guide's tabs are brought to the front (after a new layout)
+	int  pick_tabs_in_ = 0; // frames until the viewer's and guide's tabs are brought to the front (after a new layout)
 	bool show_imgui_demo_ = false;
 	bool show_implot_demo_ = false;
 };

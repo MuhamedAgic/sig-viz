@@ -16,8 +16,11 @@ namespace {
 	template <std::invocable Fn>
 	class [[nodiscard]] OnExit {
 	public:
-		explicit OnExit(Fn fn) : fn_{ std::move(fn) } {}
-		~OnExit() { fn_(); }
+		explicit OnExit(Fn fn) : fn_{ std::move(fn) } {
+		}
+		~OnExit() {
+			fn_();
+		}
 
 		OnExit(const OnExit&) = delete;
 		OnExit& operator=(const OnExit&) = delete;
@@ -29,7 +32,9 @@ namespace {
 } // namespace
 
 int main() {
-	if constexpr (PRODUCTION_BUILD) SetTraceLogLevel(LOG_NONE);
+	if constexpr (PRODUCTION_BUILD) {
+		SetTraceLogLevel(LOG_NONE);
+	}
 
 	// VSync caps the frame rate to the monitor instead of spinning a CPU core at thousands of FPS.
 	SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);

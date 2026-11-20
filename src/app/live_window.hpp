@@ -20,7 +20,7 @@
 class LiveWindow {
 public:
 	static constexpr const char* title = "Live";
-	bool open = true;
+	bool                         open = true;
 
 	void draw(Workspace& ws);
 
@@ -46,13 +46,13 @@ private:
 	float          keep_seconds_ = 5.0f; // how much of the newest signal the live track holds
 	bool           follow_ = true;       // keep the playhead at the newest samples
 
-	std::unique_ptr<LiveInput> input_;
-	std::string                error_;
-	std::vector<float>         i_, q_;    // the newest samples (at most keep_seconds_)
-	TrackPtr                   track_;    // the live track in the library
-	std::uint64_t              live_id_ = 0;
+	std::unique_ptr<LiveInput>            input_;
+	std::string                           error_;
+	std::vector<float>                    i_, q_; // the newest samples (at most keep_seconds_)
+	TrackPtr                              track_; // the live track in the library
+	std::uint64_t                         live_id_ = 0;
 	std::chrono::steady_clock::time_point last_update_{};
-	double                     received_ = 0.0; // samples, for the rate shown
+	double                                received_ = 0.0; // samples, for the rate shown
 	std::chrono::steady_clock::time_point started_{};
 
 	bool               recording_ = false;

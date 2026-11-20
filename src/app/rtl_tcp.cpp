@@ -35,7 +35,8 @@ namespace {
 
 	class RtlTcp final : public LiveInput {
 	public:
-		explicit RtlTcp(const RtlTcpSettings& settings) : settings_{ settings } {}
+		explicit RtlTcp(const RtlTcpSettings& settings) : settings_{ settings } {
+		}
 
 		bool open(std::string& error) {
 #if defined(_WIN32)
@@ -50,7 +51,8 @@ namespace {
 			hints.ai_family = AF_UNSPEC;
 			hints.ai_socktype = SOCK_STREAM;
 			addrinfo* found = nullptr;
-			if (getaddrinfo(settings_.host.c_str(), std::to_string(settings_.port).c_str(), &hints, &found) != 0 || !found) {
+			if (getaddrinfo(settings_.host.c_str(), std::to_string(settings_.port).c_str(), &hints, &found) != 0 ||
+			    !found) {
 				error = std::format("Can't find '{}'.", settings_.host);
 				return false;
 			}
@@ -63,7 +65,8 @@ namespace {
 			}
 			freeaddrinfo(found);
 			if (socket_ == no_socket) {
-				error = std::format("Can't connect to {}:{}. Is rtl_tcp running there?", settings_.host, settings_.port);
+				error =
+					std::format("Can't connect to {}:{}. Is rtl_tcp running there?", settings_.host, settings_.port);
 				return false;
 			}
 
@@ -87,39 +90,54 @@ namespace {
 				shutdown(socket_, 2); // wakes the reader up from recv()
 				closesocket(socket_);
 			}
-			if (reader_.joinable()) reader_.join();
+			if (reader_.joinable()) {
+				reader_.join();
+			}
 #if defined(_WIN32)
-			if (wsa_started_) WSACleanup();
+			if (wsa_started_) {
+				WSACleanup();
+			}
 #endif
 		}
 
-		[[nodiscard]] bool  iq() const override { return true; }
-		[[nodiscard]] float sample_rate() const override { return static_cast<float>(settings_.sample_rate); }
+		[[nodiscard]] bool iq() const override {
+			return true;
+		}
+		[[nodiscard]] float sample_rate() const override {
+			return static_cast<float>(settings_.sample_rate);
+		}
 
-		void tune(double hz) override { send_command(0x01, static_cast<std::uint32_t>(std::llround(hz))); }
+		void tune(double hz) override {
+			send_command(0x01, static_cast<std::uint32_t>(std::llround(hz)));
+		}
 
 	private:
 		// A command: one byte saying what, four bytes (big-endian) saying how much.
 		void send_command(std::uint8_t command, std::uint32_t value) {
-			const std::array<char, 5> bytes{ static_cast<char>(command), static_cast<char>(value >> 24), static_cast<char>(value >> 16),
-				static_cast<char>(value >> 8), static_cast<char>(value) };
+			const std::array<char, 5> bytes{ static_cast<char>(command),
+				                             static_cast<char>(value >> 24),
+				                             static_cast<char>(value >> 16),
+				                             static_cast<char>(value >> 8),
+				                             static_cast<char>(value) };
 			::send(socket_, bytes.data(), static_cast<int>(bytes.size()), 0);
 		}
 
 		void read(const std::stop_token& stop) {
 			std::vector<unsigned char> bytes(1 << 16);
-			std::vector<float> i, q;
-			std::size_t header = 12; // "RTL0", tuner type, gain count: not needed
-			bool odd = false;        // a byte of I arrived without its Q
-			float pending_i = 0.0f;
+			std::vector<float>         i, q;
+			std::size_t                header = 12; // "RTL0", tuner type, gain count: not needed
+			bool                       odd = false; // a byte of I arrived without its Q
+			float                      pending_i = 0.0f;
 			while (!stop.stop_requested()) {
 				const int got = recv(socket_, reinterpret_cast<char*>(bytes.data()), static_cast<int>(bytes.size()), 0);
 				if (got <= 0) {
-					if (!stop.stop_requested()) fail("The connection to rtl_tcp was closed.");
+					if (!stop.stop_requested()) {
+						fail("The connection to rtl_tcp was closed.");
+					}
 					return;
 				}
 				std::size_t at = 0;
-				const auto count = static_cast<std::size_t>(got);
+				const auto  count = static_cast<std::size_t>(got);
 				while (header > 0 && at < count) {
 					--header;
 					++at;
@@ -128,7 +146,9 @@ namespace {
 				q.clear();
 				for (; at < count; ++at) {
 					const float value = (static_cast<float>(bytes[at]) - 127.5f) / 127.5f;
-					if (!odd) pending_i = value;
+					if (!odd) {
+						pending_i = value;
+					}
 					else {
 						i.push_back(pending_i);
 						q.push_back(value);
@@ -149,6 +169,8 @@ namespace {
 
 std::unique_ptr<LiveInput> open_rtl_tcp(const RtlTcpSettings& settings, std::string& error) {
 	auto radio = std::make_unique<RtlTcp>(settings);
-	if (!radio->open(error)) return nullptr;
+	if (!radio->open(error)) {
+		return nullptr;
+	}
 	return radio;
 }

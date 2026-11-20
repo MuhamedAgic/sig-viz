@@ -18,7 +18,9 @@ struct TimeRange {
 	double begin = 0.0; // seconds
 	double end = 0.0;
 
-	[[nodiscard]] double length() const { return end - begin; }
+	[[nodiscard]] double length() const {
+		return end - begin;
+	}
 };
 
 struct Playback {
@@ -30,7 +32,9 @@ struct Playback {
 
 	// Moves the playhead on by dt seconds of real time. When looping, it wraps within `loop_range`.
 	void advance(double dt, double duration, const TimeRange& loop_range) {
-		if (!playing || scrubbing) return;
+		if (!playing || scrubbing) {
+			return;
+		}
 
 		position += dt * speed;
 		if (loop && position >= loop_range.end) {
@@ -43,7 +47,9 @@ struct Playback {
 	}
 
 	void toggle(double duration) {
-		if (!playing && position >= duration) position = 0.0; // replay from the start
+		if (!playing && position >= duration) {
+			position = 0.0; // replay from the start
+		}
 		playing = !playing;
 	}
 };
@@ -64,7 +70,7 @@ struct Audition {
 
 struct Workspace {
 	Library                              library;
-	TrackPtr                             current;   // the signal in the viewer; the analysis windows follow it
+	TrackPtr                             current; // the signal in the viewer; the analysis windows follow it
 	Playback                             playback;
 	std::optional<TimeRange>             selection; // shift + drag in the viewer
 	std::array<std::optional<double>, 2> cursors;   // right-click in the viewer (seconds)
@@ -76,15 +82,21 @@ struct Workspace {
 	// Call at the end of every frame.
 	void end_frame() {
 		hover = std::exchange(next_hover, {});
-		if (audition && audition->source != current) audition.reset();
+		if (audition && audition->source != current) {
+			audition.reset();
+		}
 	}
 
 	Workspace() {
-		for (sig::Signal& example : sig::make_example_signals()) library.add(std::move(example), true);
+		for (sig::Signal& example : sig::make_example_signals()) {
+			library.add(std::move(example), true);
+		}
 		select(library.tracks().front());
 	}
 
-	[[nodiscard]] const sig::Signal& signal() const { return current->signal(); }
+	[[nodiscard]] const sig::Signal& signal() const {
+		return current->signal();
+	}
 
 	void select(TrackPtr track) {
 		current = std::move(track);
@@ -96,20 +108,28 @@ struct Workspace {
 
 	// Swaps a live input's previous update for a new one, without disturbing the playhead or marks.
 	void update_live(const TrackPtr& previous, TrackPtr update) {
-		if (current == previous) current = update;
+		if (current == previous) {
+			current = update;
+		}
 		library.replace(previous, std::move(update));
 	}
 
 	// Adds a new signal to the library and shows it.
-	void add_and_select(sig::Signal signal, Lineage lineage = {}) { select(library.add(std::move(signal), false, std::move(lineage))); }
+	void add_and_select(sig::Signal signal, Lineage lineage = {}) {
+		select(library.add(std::move(signal), false, std::move(lineage)));
+	}
 
 	// The part playback loops over: the selection if there is one, else the whole signal.
-	[[nodiscard]] TimeRange loop_range() const { return selection.value_or(TimeRange{ 0.0, signal().duration() }); }
+	[[nodiscard]] TimeRange loop_range() const {
+		return selection.value_or(TimeRange{ 0.0, signal().duration() });
+	}
 
 	// The part to analyse: the selection if there is one, else `seconds` around the playhead
 	// (kept inside the signal, so nothing before its start or after its end is analysed).
 	[[nodiscard]] TimeRange focus(double seconds) const {
-		if (selection) return *selection;
+		if (selection) {
+			return *selection;
+		}
 		const double duration = signal().duration();
 		const double begin = std::clamp(playback.position - seconds / 2.0, 0.0, std::max(duration - seconds, 0.0));
 		return { begin, std::min(begin + seconds, duration) };

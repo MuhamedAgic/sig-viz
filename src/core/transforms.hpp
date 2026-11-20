@@ -31,15 +31,22 @@ namespace sig::transform {
 	namespace detail {
 
 		// A signal with the same name, description, rate and zoom as `like`, but new samples.
-		[[nodiscard]] inline Signal with_channels(const Signal& like, Layout layout, std::vector<std::vector<float>> channels) {
-			Signal out{ like.name, like.description, like.sample_rate, like.default_view_seconds, layout, std::move(channels) };
+		[[nodiscard]] inline Signal with_channels(
+			const Signal&                   like,
+			Layout                          layout,
+			std::vector<std::vector<float>> channels
+		) {
+			Signal out{ like.name, like.description,   like.sample_rate, like.default_view_seconds,
+				        layout,    std::move(channels) };
 			out.center_hz = like.center_hz;
 			return out;
 		}
 
 		[[nodiscard]] inline std::vector<Complex> to_complex(const Signal& signal) {
 			std::vector<Complex> out(signal.frames());
-			for (std::size_t i = 0; i < out.size(); ++i) out[i] = signal.complex_at(i);
+			for (std::size_t i = 0; i < out.size(); ++i) {
+				out[i] = signal.complex_at(i);
+			}
 			return out;
 		}
 
@@ -60,8 +67,11 @@ namespace sig::transform {
 		template <typename Fn>
 		[[nodiscard]] Signal map_samples(const Signal& signal, Fn fn) {
 			Signal out = signal;
-			for (auto& channel : out.channels)
-				for (float& v : channel) v = fn(v);
+			for (auto& channel : out.channels) {
+				for (float& v : channel) {
+					v = fn(v);
+				}
+			}
 			return out;
 		}
 
@@ -74,11 +84,15 @@ namespace sig::transform {
 		// how far from the centre (|z|, the envelope) and at what angle (arg z, the phase).
 		[[nodiscard]] inline std::vector<Complex> analytic(const Signal& real) {
 			std::vector<Complex> z = to_complex(real);
-			const std::size_t n = z.size();
+			const std::size_t    n = z.size();
 			fft::forward(z);
 			for (std::size_t k = 1; k < n; ++k) {
-				if (2 * k < n) z[k] *= 2.0f;      // positive frequencies
-				else if (2 * k > n) z[k] = 0.0f;  // negative frequencies (the Nyquist bin, 2k == n, stays)
+				if (2 * k < n) {
+					z[k] *= 2.0f; // positive frequencies
+				}
+				else if (2 * k > n) {
+					z[k] = 0.0f; // negative frequencies (the Nyquist bin, 2k == n, stays)
+				}
 			}
 			fft::inverse(z);
 			return z;
@@ -91,23 +105,34 @@ namespace sig::transform {
 
 		[[nodiscard]] inline float peak_magnitude(std::span<const float> samples) {
 			float peak = 0.0f;
-			for (const float v : samples) peak = std::max(peak, std::abs(v));
+			for (const float v : samples) {
+				peak = std::max(peak, std::abs(v));
+			}
 			return peak;
 		}
 
 		// Scales so that the largest magnitude becomes `target`.
 		inline void normalize_in_place(std::vector<float>& samples, float target = 0.9f) {
 			const float peak = peak_magnitude(samples);
-			if (peak > 0.0f)
-				for (float& v : samples) v *= target / peak;
+			if (peak > 0.0f) {
+				for (float& v : samples) {
+					v *= target / peak;
+				}
+			}
 		}
 
 		inline void remove_mean(std::vector<float>& samples) {
-			if (samples.empty()) return;
+			if (samples.empty()) {
+				return;
+			}
 			double sum = 0.0;
-			for (const float v : samples) sum += v;
+			for (const float v : samples) {
+				sum += v;
+			}
 			const auto mean = static_cast<float>(sum / static_cast<double>(samples.size()));
-			for (float& v : samples) v -= mean;
+			for (float& v : samples) {
+				v -= mean;
+			}
 		}
 
 	} // namespace detail
@@ -122,34 +147,50 @@ namespace sig::transform {
 	// Scales the signal so its largest magnitude is 1 (I/Q: largest |I + jQ|).
 	[[nodiscard]] inline Result normalize(const Signal& signal) {
 		float peak = 0.0f;
-		for (std::size_t i = 0; i < signal.frames(); ++i) peak = std::max(peak, std::abs(signal.complex_at(i)));
-		if (peak == 0.0f) return std::unexpected("The signal is silent");
+		for (std::size_t i = 0; i < signal.frames(); ++i) {
+			peak = std::max(peak, std::abs(signal.complex_at(i)));
+		}
+		if (peak == 0.0f) {
+			return std::unexpected("The signal is silent");
+		}
 		return detail::map_samples(signal, [peak](float v) { return v / peak; });
 	}
 
 	[[nodiscard]] inline Result remove_dc(const Signal& signal) {
 		Signal out = signal;
-		for (auto& channel : out.channels) detail::remove_mean(channel);
+		for (auto& channel : out.channels) {
+			detail::remove_mean(channel);
+		}
 		return out;
 	}
 
 	// Adds Gaussian noise so that signal power / noise power = snr_db.
 	[[nodiscard]] inline Result add_noise(const Signal& signal, float snr_db, unsigned seed) {
 		double power = 0.0;
-		for (std::size_t i = 0; i < signal.frames(); ++i) power += std::norm(signal.complex_at(i));
+		for (std::size_t i = 0; i < signal.frames(); ++i) {
+			power += std::norm(signal.complex_at(i));
+		}
 		power /= static_cast<double>(std::max<std::size_t>(signal.frames(), 1));
-		if (power == 0.0) return std::unexpected("The signal is silent, so a signal-to-noise ratio means nothing");
+		if (power == 0.0) {
+			return std::unexpected("The signal is silent, so a signal-to-noise ratio means nothing");
+		}
 
-		const double noise_power = power / std::pow(10.0, snr_db / 10.0);
-		std::mt19937 rng{ seed };
-		std::normal_distribution<float> noise{ 0.0f, static_cast<float>(std::sqrt(noise_power / static_cast<double>(signal.channels.size()))) };
+		const double                    noise_power = power / std::pow(10.0, snr_db / 10.0);
+		std::mt19937                    rng{ seed };
+		std::normal_distribution<float> noise{
+			0.0f,
+			static_cast<float>(std::sqrt(noise_power / static_cast<double>(signal.channels.size())))
+		};
 		return detail::map_samples(signal, [&](float v) { return v + noise(rng); });
 	}
 
 	// ---- filters ----------------------------------------------------------------------------------
 
 	enum class FilterType { LowPass, HighPass, BandPass, BandStop };
-	inline constexpr std::array all_filter_types{ FilterType::LowPass, FilterType::HighPass, FilterType::BandPass, FilterType::BandStop };
+	inline constexpr std::array all_filter_types{ FilterType::LowPass,
+		                                          FilterType::HighPass,
+		                                          FilterType::BandPass,
+		                                          FilterType::BandStop };
 
 	[[nodiscard]] constexpr std::string_view name(FilterType type) {
 		switch (type) {
@@ -168,7 +209,7 @@ namespace sig::transform {
 		float      low_hz = 300.0f;
 		float      high_hz = 3000.0f;
 		int        taps = 101; // filter length: more taps = sharper edges, slower
-		bool operator==(const FilterSpec&) const = default;
+		bool       operator==(const FilterSpec&) const = default;
 	};
 
 	// FIR filter coefficients (windowed sinc). Always an odd count, symmetric around the middle tap,
@@ -179,34 +220,42 @@ namespace sig::transform {
 	// average: averaging smooths away fast wiggles (high frequencies) and keeps slow changes, so it is a
 	// low-pass filter. The weights below are the "ideal" low-pass shape (a sinc), shortened to `taps` values.
 	[[nodiscard]] inline std::vector<float> design_filter(const FilterSpec& spec, float sample_rate) {
-		const int taps = std::max(spec.taps, 3) | 1;
-		const int middle = taps / 2;
+		const int    taps = std::max(spec.taps, 3) | 1;
+		const int    middle = taps / 2;
 		const double nyquist = sample_rate / 2.0;
 
 		// Ideal low-pass up to `cutoff_hz`, shortened to `taps` with a Blackman window, gain 1 at 0 Hz.
 		const auto low_pass = [&](double cutoff_hz) {
-			const double f = std::clamp(cutoff_hz, 0.0, nyquist) / sample_rate; // cycles per sample, 0 .. 0.5
+			const double        f = std::clamp(cutoff_hz, 0.0, nyquist) / sample_rate; // cycles per sample, 0 .. 0.5
 			std::vector<double> h(static_cast<std::size_t>(taps));
-			double sum = 0.0;
+			double              sum = 0.0;
 			for (int n = 0; n < taps; ++n) {
 				const double x = n - middle;
 				const double sinc = x == 0.0 ? 2.0 * f : std::sin(tau * f * x) / (std::numbers::pi * x);
-				const double w = 0.42 - 0.5 * std::cos(tau * n / (taps - 1)) + 0.08 * std::cos(2.0 * tau * n / (taps - 1));
+				const double w =
+					0.42 - 0.5 * std::cos(tau * n / (taps - 1)) + 0.08 * std::cos(2.0 * tau * n / (taps - 1));
 				h[static_cast<std::size_t>(n)] = sinc * w;
 				sum += sinc * w;
 			}
-			if (sum > 0.0)
-				for (double& v : h) v /= sum;
+			if (sum > 0.0) {
+				for (double& v : h) {
+					v /= sum;
+				}
+			}
 			return h;
 		};
 		// "Everything minus the band": an impulse (passes all) minus a band-pass.
 		const auto invert = [&](std::vector<double> h) {
-			for (double& v : h) v = -v;
+			for (double& v : h) {
+				v = -v;
+			}
 			h[static_cast<std::size_t>(middle)] += 1.0;
 			return h;
 		};
 		const auto subtract = [](std::vector<double> a, const std::vector<double>& b) {
-			for (std::size_t i = 0; i < a.size(); ++i) a[i] -= b[i];
+			for (std::size_t i = 0; i < a.size(); ++i) {
+				a[i] -= b[i];
+			}
 			return a;
 		};
 
@@ -235,7 +284,9 @@ namespace sig::transform {
 			std::ranges::copy(x, padded.begin() + static_cast<std::ptrdiff_t>(middle));
 			for (std::size_t n = 0; n < x.size(); ++n) {
 				float sum = 0.0f;
-				for (std::size_t k = 0; k < h.size(); ++k) sum += h[k] * padded[n + k];
+				for (std::size_t k = 0; k < h.size(); ++k) {
+					sum += h[k] * padded[n + k];
+				}
 				x[n] = sum;
 			}
 		}
@@ -259,12 +310,16 @@ namespace sig::transform {
 				const std::size_t count = std::min(step, x.size() - start);
 				std::copy_n(x.begin() + static_cast<std::ptrdiff_t>(start), count, block.begin());
 				fft::forward(block);
-				for (std::size_t k = 0; k < size; ++k) block[k] *= response[k];
+				for (std::size_t k = 0; k < size; ++k) {
+					block[k] *= response[k];
+				}
 				fft::inverse(block);
 				// block[k] belongs at full-convolution index start + k, i.e. output index start + k - middle.
 				for (std::size_t k = 0; k < count + h.size() - 1; ++k) {
 					const std::size_t full = start + k;
-					if (full >= middle && full - middle < out.size()) out[full - middle] += block[k];
+					if (full >= middle && full - middle < out.size()) {
+						out[full - middle] += block[k];
+					}
 				}
 			}
 			x = std::move(out);
@@ -277,13 +332,17 @@ namespace sig::transform {
 		const std::vector<float> h = design_filter(spec, signal.sample_rate);
 		if (h.size() < 64) { // short filter: the direct sum is quicker than setting up FFTs
 			Signal out = signal;
-			for (auto& channel : out.channels) detail::convolve_direct(channel, h);
+			for (auto& channel : out.channels) {
+				detail::convolve_direct(channel, h);
+			}
 			return out;
 		}
 		// Real taps on I + jQ filter I and Q separately, so both channels go through one complex FFT.
 		std::vector<Complex> z = detail::to_complex(signal);
 		detail::convolve_fft(z, h);
-		if (signal.is_iq()) return detail::from_complex(signal, z);
+		if (signal.is_iq()) {
+			return detail::from_complex(signal, z);
+		}
 		std::vector<float> real(z.size());
 		std::ranges::transform(z, real.begin(), [](Complex v) { return v.real(); });
 		return detail::from_real(signal, std::move(real));
@@ -292,8 +351,10 @@ namespace sig::transform {
 	// filter() without the FFT shortcut, for checking it.
 	[[nodiscard]] inline Result filter_direct(const Signal& signal, const FilterSpec& spec) {
 		const std::vector<float> h = design_filter(spec, signal.sample_rate);
-		Signal out = signal;
-		for (auto& channel : out.channels) detail::convolve_direct(channel, h);
+		Signal                   out = signal;
+		for (auto& channel : out.channels) {
+			detail::convolve_direct(channel, h);
+		}
 		return out;
 	}
 
@@ -325,20 +386,31 @@ namespace sig::transform {
 	// this also works on one side of an I/Q signal: the band is moved to 0 Hz, low-passed, and moved back.
 	// A real signal stays real (its spectrum is mirrored anyway).
 	[[nodiscard]] inline Result band_pass(const Signal& signal, double low_hz, double high_hz) {
-		if (!(high_hz > low_hz)) return std::unexpected("The band is empty");
+		if (!(high_hz > low_hz)) {
+			return std::unexpected("The band is empty");
+		}
 		const double width = high_hz - low_hz;
-		const int taps = taps_for(width * 0.2, signal.sample_rate);
+		const int    taps = taps_for(width * 0.2, signal.sample_rate);
 		if (!signal.is_iq()) {
-			const FilterSpec spec{ FilterType::BandPass, static_cast<float>(std::max(low_hz, 0.0)), static_cast<float>(high_hz), taps };
+			const FilterSpec spec{ FilterType::BandPass,
+				                   static_cast<float>(std::max(low_hz, 0.0)),
+				                   static_cast<float>(high_hz),
+				                   taps };
 			return filter(signal, spec);
 		}
 		const double centre = (low_hz + high_hz) / 2.0;
-		auto down = shift_frequency(signal, -centre);
-		if (!down) return down;
+		auto         down = shift_frequency(signal, -centre);
+		if (!down) {
+			return down;
+		}
 		auto narrow = filter(*down, { FilterType::LowPass, 0.0f, static_cast<float>(width / 2.0), taps });
-		if (!narrow) return narrow;
+		if (!narrow) {
+			return narrow;
+		}
 		auto back = shift_frequency(*narrow, centre);
-		if (back) back->center_hz = signal.center_hz;
+		if (back) {
+			back->center_hz = signal.center_hz;
+		}
 		return back;
 	}
 
@@ -350,27 +422,32 @@ namespace sig::transform {
 	// Interpolation is "connect the dots" with the smoothest curve that has no frequencies the new rate
 	// cannot hold: each output sample is a weighted sum of nearby input samples (weights from a sinc).
 	[[nodiscard]] inline Result resample(const Signal& signal, float new_rate) {
-		if (!(new_rate > 0.0f)) return std::unexpected("The new sample rate must be greater than 0");
+		if (!(new_rate > 0.0f)) {
+			return std::unexpected("The new sample rate must be greater than 0");
+		}
 
 		const double ratio = new_rate / static_cast<double>(signal.sample_rate); // output samples per input sample
-		const auto out_frames = static_cast<std::size_t>(std::llround(static_cast<double>(signal.frames()) * ratio));
-		if (out_frames == 0) return std::unexpected("The result would have no samples");
+		const auto   out_frames = static_cast<std::size_t>(std::llround(static_cast<double>(signal.frames()) * ratio));
+		if (out_frames == 0) {
+			return std::unexpected("The result would have no samples");
+		}
 
 		// The interpolation kernel sinc(x) * window, for x in 0 .. zero_crossings. It is evaluated a lot,
 		// so it is tabulated once (with `steps` entries per zero crossing) and looked up.
-		constexpr int zero_crossings = 16;
-		constexpr int steps = 256;
+		constexpr int      zero_crossings = 16;
+		constexpr int      steps = 256;
 		std::vector<float> table(zero_crossings * steps + 2);
 		for (std::size_t i = 0; i < table.size(); ++i) {
 			const double x = static_cast<double>(i) / steps;
 			const double sinc = x == 0.0 ? 1.0 : std::sin(std::numbers::pi * x) / (std::numbers::pi * x);
-			const double window = x < zero_crossings ? 0.5 + 0.5 * std::cos(std::numbers::pi * x / zero_crossings) : 0.0;
+			const double window =
+				x < zero_crossings ? 0.5 + 0.5 * std::cos(std::numbers::pi * x / zero_crossings) : 0.0;
 			table[i] = static_cast<float>(sinc * window);
 		}
 
-		const double cutoff = std::min(1.0, ratio);         // fraction of the input band to keep
-		const double reach = zero_crossings / cutoff;        // kernel half-width, in input samples
-		const auto frames = static_cast<std::ptrdiff_t>(signal.frames());
+		const double cutoff = std::min(1.0, ratio);   // fraction of the input band to keep
+		const double reach = zero_crossings / cutoff; // kernel half-width, in input samples
+		const auto   frames = static_cast<std::ptrdiff_t>(signal.frames());
 
 		Signal out = detail::with_channels(signal, signal.layout, {});
 		out.sample_rate = new_rate;
@@ -378,14 +455,18 @@ namespace sig::transform {
 			std::vector<float>& y = out.channels.emplace_back(out_frames);
 			for (std::size_t n = 0; n < out_frames; ++n) {
 				const double t = static_cast<double>(n) / ratio; // position in the input, in samples
-				const auto first = std::max<std::ptrdiff_t>(0, static_cast<std::ptrdiff_t>(std::ceil(t - reach)));
-				const auto last = std::min<std::ptrdiff_t>(frames - 1, static_cast<std::ptrdiff_t>(std::floor(t + reach)));
+				const auto   first = std::max<std::ptrdiff_t>(0, static_cast<std::ptrdiff_t>(std::ceil(t - reach)));
+				const auto   last =
+					std::min<std::ptrdiff_t>(frames - 1, static_cast<std::ptrdiff_t>(std::floor(t + reach)));
 				double sum = 0.0;
 				for (std::ptrdiff_t i = first; i <= last; ++i) {
 					const double x = std::abs(t - static_cast<double>(i)) * cutoff * steps;
-					const auto k = static_cast<std::size_t>(x);
-					if (k + 1 >= table.size()) continue;
-					const auto kernel = std::lerp(table[k], table[k + 1], static_cast<float>(x - static_cast<double>(k)));
+					const auto   k = static_cast<std::size_t>(x);
+					if (k + 1 >= table.size()) {
+						continue;
+					}
+					const auto kernel =
+						std::lerp(table[k], table[k + 1], static_cast<float>(x - static_cast<double>(k)));
 					sum += in[static_cast<std::size_t>(i)] * kernel;
 				}
 				y[n] = static_cast<float>(sum * cutoff);
@@ -398,13 +479,17 @@ namespace sig::transform {
 
 	// Real -> I/Q via the Hilbert transform: I is the signal itself, Q the same signal shifted 90 degrees.
 	[[nodiscard]] inline Result to_iq(const Signal& signal) {
-		if (signal.is_iq()) return std::unexpected("The signal already is I/Q");
+		if (signal.is_iq()) {
+			return std::unexpected("The signal already is I/Q");
+		}
 		return detail::from_complex(signal, detail::analytic(signal));
 	}
 
 	// I/Q -> real, keeping I.
 	[[nodiscard]] inline Result to_real(const Signal& signal) {
-		if (!signal.is_iq()) return std::unexpected("The signal already is real");
+		if (!signal.is_iq()) {
+			return std::unexpected("The signal already is real");
+		}
 		return detail::from_real(signal, signal.channels[0]);
 	}
 
@@ -413,8 +498,10 @@ namespace sig::transform {
 	// (envelope) of the wave: the distance of the clock-face dot from the centre.
 	[[nodiscard]] inline Result am_demodulate(const Signal& signal) {
 		const std::vector<Complex> z = detail::as_iq(signal);
-		std::vector<float> out(z.size());
-		for (std::size_t n = 0; n < z.size(); ++n) out[n] = std::abs(z[n]);
+		std::vector<float>         out(z.size());
+		for (std::size_t n = 0; n < z.size(); ++n) {
+			out[n] = std::abs(z[n]);
+		}
 		detail::remove_mean(out);
 		detail::normalize_in_place(out);
 		return detail::from_real(signal, std::move(out));
@@ -426,9 +513,13 @@ namespace sig::transform {
 	// clock-face dot turned since the previous sample: z[n] * conj(z[n-1]) has exactly that angle.
 	[[nodiscard]] inline Result fm_demodulate(const Signal& signal) {
 		const std::vector<Complex> z = detail::as_iq(signal);
-		std::vector<float> out(z.size());
-		for (std::size_t n = 1; n < z.size(); ++n) out[n] = std::arg(z[n] * std::conj(z[n - 1]));
-		if (out.size() > 1) out[0] = out[1];
+		std::vector<float>         out(z.size());
+		for (std::size_t n = 1; n < z.size(); ++n) {
+			out[n] = std::arg(z[n] * std::conj(z[n - 1]));
+		}
+		if (out.size() > 1) {
+			out[0] = out[1];
+		}
 		detail::remove_mean(out);
 		detail::normalize_in_place(out);
 		return detail::from_real(signal, std::move(out));
@@ -439,14 +530,22 @@ namespace sig::transform {
 	// Keeps [begin, end) seconds.
 	[[nodiscard]] inline Result trim(const Signal& signal, double begin, double end) {
 		const auto to_frame = [&](double t) {
-			return static_cast<std::size_t>(std::clamp(std::round(t * signal.sample_rate), 0.0, static_cast<double>(signal.frames())));
+			return static_cast<std::size_t>(
+				std::clamp(std::round(t * signal.sample_rate), 0.0, static_cast<double>(signal.frames()))
+			);
 		};
 		const std::size_t first = to_frame(begin), last = to_frame(end);
-		if (first >= last) return std::unexpected("Nothing to keep: the range is empty");
+		if (first >= last) {
+			return std::unexpected("Nothing to keep: the range is empty");
+		}
 
 		Signal out = detail::with_channels(signal, signal.layout, {});
-		for (const auto& channel : signal.channels)
-			out.channels.emplace_back(channel.begin() + static_cast<std::ptrdiff_t>(first), channel.begin() + static_cast<std::ptrdiff_t>(last));
+		for (const auto& channel : signal.channels) {
+			out.channels.emplace_back(
+				channel.begin() + static_cast<std::ptrdiff_t>(first),
+				channel.begin() + static_cast<std::ptrdiff_t>(last)
+			);
+		}
 		return out;
 	}
 
@@ -466,15 +565,18 @@ namespace sig::transform {
 	// has no samples it counts as 0. Real and I/Q can be mixed: the result is I/Q if either is.
 	// Multiplying a message by a carrier is exactly what modulation is.
 	[[nodiscard]] inline Result combine(const Signal& a, const Signal& b, Combine op, std::ptrdiff_t lag = 0) {
-		if (a.sample_rate != b.sample_rate)
-			return std::unexpected(std::format("A is {} Hz and B is {} Hz; resample one of them first", a.sample_rate, b.sample_rate));
+		if (a.sample_rate != b.sample_rate) {
+			return std::unexpected(
+				std::format("A is {} Hz and B is {} Hz; resample one of them first", a.sample_rate, b.sample_rate)
+			);
+		}
 
 		std::vector<Complex> out(a.frames());
-		const auto nb = static_cast<std::ptrdiff_t>(b.frames());
+		const auto           nb = static_cast<std::ptrdiff_t>(b.frames());
 		for (std::size_t n = 0; n < out.size(); ++n) {
 			const std::ptrdiff_t j = static_cast<std::ptrdiff_t>(n) - lag;
-			const Complex x = a.complex_at(n);
-			const Complex y = (j >= 0 && j < nb) ? b.complex_at(static_cast<std::size_t>(j)) : Complex{};
+			const Complex        x = a.complex_at(n);
+			const Complex        y = (j >= 0 && j < nb) ? b.complex_at(static_cast<std::size_t>(j)) : Complex{};
 			switch (op) {
 			case Combine::Add:      out[n] = x + y; break;
 			case Combine::Subtract: out[n] = x - y; break;
@@ -482,9 +584,13 @@ namespace sig::transform {
 			}
 		}
 
-		if (a.is_iq() || b.is_iq()) return detail::from_complex(a, out);
+		if (a.is_iq() || b.is_iq()) {
+			return detail::from_complex(a, out);
+		}
 		std::vector<float> real(out.size());
-		for (std::size_t n = 0; n < out.size(); ++n) real[n] = out[n].real();
+		for (std::size_t n = 0; n < out.size(); ++n) {
+			real[n] = out[n].real();
+		}
 		return detail::from_real(a, std::move(real));
 	}
 
@@ -494,24 +600,42 @@ namespace sig::transform {
 	// filtered, and at a sample rate that just fits the band (smaller and faster to work with). I/Q result.
 	// Like a radio tuning in to one station: tune (shift), keep only that station (filter), and stop
 	// recording more detail than the station needs (lower rate).
-	[[nodiscard]] inline Result extract_band(const Signal& signal, double begin, double end, double low_hz, double high_hz) {
-		if (!(high_hz > low_hz)) return std::unexpected("The band is empty");
+	[[nodiscard]] inline Result extract_band(
+		const Signal& signal,
+		double        begin,
+		double        end,
+		double        low_hz,
+		double        high_hz
+	) {
+		if (!(high_hz > low_hz)) {
+			return std::unexpected("The band is empty");
+		}
 		auto part = trim(signal, begin, end);
-		if (!part) return part;
+		if (!part) {
+			return part;
+		}
 		const double centre = (low_hz + high_hz) / 2.0;
 		const double width = high_hz - low_hz;
 
 		auto down = shift_frequency(*part, -centre);
-		if (!down) return down;
-		auto narrow = filter(*down, { FilterType::LowPass, 0.0f, static_cast<float>(width / 2.0), taps_for(width * 0.2, down->sample_rate) });
-		if (!narrow) return narrow;
+		if (!down) {
+			return down;
+		}
+		auto narrow = filter(
+			*down,
+			{ FilterType::LowPass, 0.0f, static_cast<float>(width / 2.0), taps_for(width * 0.2, down->sample_rate) }
+		);
+		if (!narrow) {
+			return narrow;
+		}
 
 		// The band is `width` wide around 0 Hz; an I/Q rate of twice that leaves room for the filter's edges.
 		const double rate = std::min<double>(signal.sample_rate, std::max(2.0 * width, 100.0));
 		Result out = rate < narrow->sample_rate * 0.9 ? resample(*narrow, static_cast<float>(rate)) : std::move(narrow);
 		if (out) {
 			out->center_hz = signal.center_hz + centre;
-			out->default_view_seconds = std::clamp(20.0f / static_cast<float>(width), 1e-4f, std::min(10.0f, out->duration()));
+			out->default_view_seconds =
+				std::clamp(20.0f / static_cast<float>(width), 1e-4f, std::min(10.0f, out->duration()));
 		}
 		return out;
 	}

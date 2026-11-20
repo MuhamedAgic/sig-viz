@@ -17,12 +17,15 @@
 
 void App::draw() {
 	take_dropped_files();
-	if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) palette_.open();
+	if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) {
+		palette_.open();
+	}
 
 	draw_menu_bar();
 	draw_status_bar(); // before the dock space, so the windows fit above it
 
-	const ImGuiID dockspace = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+	const ImGuiID dockspace =
+		ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 	if (check_layout_ || reset_layout_) {
 		const ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspace);
 		if (reset_layout_ || node == nullptr || node->IsLeafNode()) {
@@ -55,8 +58,12 @@ void App::draw() {
 	palette_.draw(commands());
 	draw_session_dialog();
 
-	if (show_imgui_demo_) ImGui::ShowDemoWindow(&show_imgui_demo_);
-	if (show_implot_demo_) ImPlot::ShowDemoWindow(&show_implot_demo_);
+	if (show_imgui_demo_) {
+		ImGui::ShowDemoWindow(&show_imgui_demo_);
+	}
+	if (show_implot_demo_) {
+		ImPlot::ShowDemoWindow(&show_implot_demo_);
+	}
 
 	ws_.end_frame();
 }
@@ -70,7 +77,9 @@ void App::show(bool& window_open, const char* title) {
 
 // Files dragged from Explorer onto the window load like "Load...".
 void App::take_dropped_files() {
-	if (!IsFileDropped()) return;
+	if (!IsFileDropped()) {
+		return;
+	}
 	const FilePathList files = LoadDroppedFiles();
 	for (unsigned i = 0; i < files.count; ++i) {
 		const std::filesystem::path path{ reinterpret_cast<const char8_t*>(files.paths[i]) }; // raylib gives UTF-8
@@ -88,9 +97,13 @@ void App::take_dropped_files() {
 
 void App::draw_session_dialog() {
 	const auto path = session_browser_.draw();
-	if (!path) return;
+	if (!path) {
+		return;
+	}
 	std::filesystem::path file = *path;
-	if (file.extension() != ".sigviz") file += ".sigviz";
+	if (file.extension() != ".sigviz") {
+		file += ".sigviz";
+	}
 	if (session_action_ == SessionAction::Save) {
 		const auto saved = session::save(ws_, file);
 		message_ = saved ? "Saved the session to " + file.string() : saved.error();
@@ -106,12 +119,15 @@ void App::draw_session_dialog() {
 
 std::vector<Command> App::commands() {
 	std::vector<Command> list;
-	const auto add = [&](std::string name, std::function<void()> run) { list.push_back({ std::move(name), std::move(run) }); };
+	const auto           add = [&](std::string name, std::function<void()> run) {
+		list.push_back({ std::move(name), std::move(run) });
+	};
 
 	add("Load a signal...", [this] { viewer_.open_load_dialog(); });
 	add("Save session...", [this] {
 		session_action_ = SessionAction::Save;
-		session_browser_.open(FileBrowser::Mode::Save, { ".sigviz" }, "All signals, the playhead and the marks.", "session.sigviz");
+		session_browser_
+			.open(FileBrowser::Mode::Save, { ".sigviz" }, "All signals, the playhead and the marks.", "session.sigviz");
 	});
 	add("Load session...", [this] {
 		session_action_ = SessionAction::Load;
@@ -143,30 +159,47 @@ std::vector<Command> App::commands() {
 		});
 	}
 	const auto topics = GuideWindow::topics();
-	for (int i = 0; i < static_cast<int>(topics.size()); ++i) add("Guide: " + topics[static_cast<std::size_t>(i)], [this, i] { guide_.show_topic(i); });
+	for (int i = 0; i < static_cast<int>(topics.size()); ++i) {
+		add("Guide: " + topics[static_cast<std::size_t>(i)], [this, i] { guide_.show_topic(i); });
+	}
 	const auto puzzles = GuideWindow::puzzles();
-	for (int i = 0; i < static_cast<int>(puzzles.size()); ++i) add("Puzzle: " + puzzles[static_cast<std::size_t>(i)], [this, i] { guide_.show_puzzle(i); });
-	for (const TrackPtr& track : ws_.library.tracks()) add("Signal: " + track->name(), [this, track] { ws_.select(track); });
+	for (int i = 0; i < static_cast<int>(puzzles.size()); ++i) {
+		add("Puzzle: " + puzzles[static_cast<std::size_t>(i)], [this, i] { guide_.show_puzzle(i); });
+	}
+	for (const TrackPtr& track : ws_.library.tracks()) {
+		add("Signal: " + track->name(), [this, track] { ws_.select(track); });
+	}
 	return list;
 }
 
 void App::draw_menu_bar() {
-	if (!ImGui::BeginMainMenuBar()) return;
+	if (!ImGui::BeginMainMenuBar()) {
+		return;
+	}
 
 	if (ImGui::BeginMenu("File")) {
-		if (ImGui::MenuItem("Load a signal...")) viewer_.open_load_dialog();
+		if (ImGui::MenuItem("Load a signal...")) {
+			viewer_.open_load_dialog();
+		}
 		ImGui::TextDisabled("  (or drop files on the window)");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Save session...")) {
 			session_action_ = SessionAction::Save;
-			session_browser_.open(FileBrowser::Mode::Save, { ".sigviz" }, "All signals, the playhead and the marks.", "session.sigviz");
+			session_browser_.open(
+				FileBrowser::Mode::Save,
+				{ ".sigviz" },
+				"All signals, the playhead and the marks.",
+				"session.sigviz"
+			);
 		}
 		if (ImGui::MenuItem("Load session...")) {
 			session_action_ = SessionAction::Load;
 			session_browser_.open(FileBrowser::Mode::Open, { ".sigviz" });
 		}
 		ImGui::Separator();
-		if (ImGui::MenuItem("Find a command...", "Ctrl+P")) palette_.open();
+		if (ImGui::MenuItem("Find a command...", "Ctrl+P")) {
+			palette_.open();
+		}
 		ImGui::EndMenu();
 	}
 
@@ -194,8 +227,12 @@ void App::draw_menu_bar() {
 	}
 
 	if (ImGui::BeginMenu("Help")) {
-		if (ImGui::MenuItem("Guide: what is all this?")) show(guide_.open, GuideWindow::title);
-		if (ImGui::MenuItem("Find a command...", "Ctrl+P")) palette_.open();
+		if (ImGui::MenuItem("Guide: what is all this?")) {
+			show(guide_.open, GuideWindow::title);
+		}
+		if (ImGui::MenuItem("Find a command...", "Ctrl+P")) {
+			palette_.open();
+		}
 		ImGui::SeparatorText("Viewer");
 		ImGui::TextUnformatted("Drag            move the playhead");
 		ImGui::TextUnformatted("Shift + drag    select a range");
@@ -221,16 +258,30 @@ void App::draw_menu_bar() {
 
 // One line along the bottom: what the mouse points at, the current signal, and the latest message.
 void App::draw_status_bar() {
-	const ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar;
-	if (!ImGui::BeginViewportSideBar("##status", ImGui::GetMainViewport(), ImGuiDir_Down, ImGui::GetFrameHeight(), flags)) {
+	const ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar;
+	if (!ImGui::BeginViewportSideBar(
+			"##status",
+			ImGui::GetMainViewport(),
+			ImGuiDir_Down,
+			ImGui::GetFrameHeight(),
+			flags
+		)) {
 		ImGui::End();
 		return;
 	}
 	if (ImGui::BeginMenuBar()) {
 		const sig::Signal& signal = ws_.signal();
-		std::string text = std::format("{}  |  {}, {}, {:.2f} s", ws_.current->name(), signal.is_iq() ? "I/Q" : "real",
-			sig::format_hz(signal.sample_rate), signal.duration());
-		if (signal.center_hz != 0.0) text += ", tuned to " + sig::format_hz(signal.center_hz);
+		std::string        text = std::format(
+			"{}  |  {}, {}, {:.2f} s",
+			ws_.current->name(),
+			signal.is_iq() ? "I/Q" : "real",
+			sig::format_hz(signal.sample_rate),
+			signal.duration()
+		);
+		if (signal.center_hz != 0.0) {
+			text += ", tuned to " + sig::format_hz(signal.center_hz);
+		}
 		ImGui::TextUnformatted(text.c_str());
 
 		// What the mouse points at, in whichever window.
@@ -239,8 +290,12 @@ void App::draw_status_bar() {
 			ImGui::SameLine(0.0f, ui::em(2.0f));
 			ImGui::TextDisabled("t %s", sig::format_seconds(*t).c_str());
 			ImGui::SameLine();
-			if (signal.is_iq()) ImGui::TextDisabled("I %+.4f  Q %+.4f  |z| %.4f", z.real(), z.imag(), std::abs(z));
-			else ImGui::TextDisabled("value %+.4f", z.real());
+			if (signal.is_iq()) {
+				ImGui::TextDisabled("I %+.4f  Q %+.4f  |z| %.4f", z.real(), z.imag(), std::abs(z));
+			}
+			else {
+				ImGui::TextDisabled("value %+.4f", z.real());
+			}
 		}
 		if (const auto& hz = ws_.hover.hz) {
 			ImGui::SameLine(0.0f, ui::em(2.0f));
@@ -248,8 +303,13 @@ void App::draw_status_bar() {
 		}
 
 		const std::string& note = !screenshot::last_message().empty() ? screenshot::last_message() : message_;
-		const std::string right = note.empty() ? "Ctrl+P: find a command" : note;
-		ImGui::SameLine(std::max(ImGui::GetCursorPosX() + ui::em(2.0f), ImGui::GetWindowWidth() - ImGui::CalcTextSize(right.c_str()).x - ui::em(1.0f)));
+		const std::string  right = note.empty() ? "Ctrl+P: find a command" : note;
+		ImGui::SameLine(
+			std::max(
+				ImGui::GetCursorPosX() + ui::em(2.0f),
+				ImGui::GetWindowWidth() - ImGui::CalcTextSize(right.c_str()).x - ui::em(1.0f)
+			)
+		);
 		ImGui::TextDisabled("%s", right.c_str());
 		ImGui::EndMenuBar();
 	}
@@ -264,9 +324,9 @@ void App::build_default_layout(ImGuiID dockspace) {
 	ImGui::DockBuilderAddNode(dockspace, ImGuiDockNodeFlags_DockSpace);
 	ImGui::DockBuilderSetNodeSize(dockspace, ImGui::GetMainViewport()->WorkSize);
 
-	ImGuiID centre = dockspace;
+	ImGuiID       centre = dockspace;
 	const ImGuiID left = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Left, 0.22f, nullptr, &centre);
-	ImGuiID right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, 0.38f, nullptr, &centre);
+	ImGuiID       right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, 0.38f, nullptr, &centre);
 	const ImGuiID right_bottom = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.5f, nullptr, &right);
 
 	ImGui::DockBuilderDockWindow(TransformWindow::title, left);

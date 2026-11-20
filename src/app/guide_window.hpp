@@ -12,15 +12,15 @@
 class GuideWindow {
 public:
 	static constexpr const char* title = "Guide";
-	bool open = true;
+	bool                         open = true;
 
 	void draw(Workspace& ws);
 
 	// For the command palette.
 	[[nodiscard]] static std::vector<std::string> topics();
 	[[nodiscard]] static std::vector<std::string> puzzles();
-	void show_topic(int index);
-	void show_puzzle(int index);
+	void                                          show_topic(int index);
+	void                                          show_puzzle(int index);
 
 private:
 	void draw_puzzles(Workspace& ws);

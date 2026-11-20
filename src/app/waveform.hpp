@@ -28,13 +28,17 @@ namespace waveform {
 		double t_end;
 		float  gain;
 
-		[[nodiscard]] float width() const { return max.x - min.x; }
+		[[nodiscard]] float width() const {
+			return max.x - min.x;
+		}
 
 		[[nodiscard]] float x_at(double t) const {
 			return min.x + static_cast<float>((t - t_begin) / (t_end - t_begin)) * width();
 		}
 
-		[[nodiscard]] double t_at(float x) const { return t_begin + (x - min.x) / width() * (t_end - t_begin); }
+		[[nodiscard]] double t_at(float x) const {
+			return t_begin + (x - min.x) / width() * (t_end - t_begin);
+		}
 
 		// value in [-1, 1] -> screen y (with 5 % headroom)
 		[[nodiscard]] float y_at(float value) const {
@@ -44,7 +48,9 @@ namespace waveform {
 		}
 
 		// The same rectangle showing a signal that starts `offset` seconds later.
-		[[nodiscard]] Canvas shifted(double offset) const { return { min, max, t_begin - offset, t_end - offset, gain }; }
+		[[nodiscard]] Canvas shifted(double offset) const {
+			return { min, max, t_begin - offset, t_end - offset, gain };
+		}
 	};
 
 	// Panel background, darkened outside [0, duration], with a grid (and time labels along the bottom).

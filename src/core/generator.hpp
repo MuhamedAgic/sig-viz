@@ -33,7 +33,10 @@ namespace sig::generator {
 	enum class Modulation { None, AM, FM, Sweep };
 
 	inline constexpr std::array all_sources{ Source::Tone, Source::Noise, Source::Digital };
-	inline constexpr std::array all_waveforms{ Waveform::Sine, Waveform::Square, Waveform::Triangle, Waveform::Sawtooth };
+	inline constexpr std::array all_waveforms{ Waveform::Sine,
+		                                       Waveform::Square,
+		                                       Waveform::Triangle,
+		                                       Waveform::Sawtooth };
 	inline constexpr std::array all_modulations{ Modulation::None, Modulation::AM, Modulation::FM, Modulation::Sweep };
 
 	[[nodiscard]] constexpr std::string_view name(Source source) {
@@ -76,16 +79,16 @@ namespace sig::generator {
 		// Tone
 		Waveform   waveform = Waveform::Sine;
 		Modulation modulation = Modulation::None;
-		float      message_hz = 5.0f;      // AM / FM: how fast the modulation goes
-		float      am_depth = 0.5f;        // AM: 0 = none, 1 = the envelope touches zero
-		float      fm_deviation = 100.0f;  // FM: how far the frequency swings, +- Hz
-		float      sweep_to = 4000.0f;     // Sweep: frequency at the end
+		float      message_hz = 5.0f;     // AM / FM: how fast the modulation goes
+		float      am_depth = 0.5f;       // AM: 0 = none, 1 = the envelope touches zero
+		float      fm_deviation = 100.0f; // FM: how far the frequency swings, +- Hz
+		float      sweep_to = 4000.0f;    // Sweep: frequency at the end
 
 		// Digital data
 		digital::Scheme   scheme = digital::Scheme::BPSK;
 		digital::LineCode line_code = digital::LineCode::NRZ;
 		float             symbol_rate = 100.0f;
-		float             fsk_deviation = 500.0f; // FSK: a 1 is this many Hz above the carrier, a 0 this many below
+		float             fsk_deviation = 500.0f;    // FSK: a 1 is this many Hz above the carrier, a 0 this many below
 		std::string       bits = "1011001110001011"; // repeated for as long as the signal lasts
 
 		// Noise on top
@@ -114,48 +117,68 @@ namespace sig::generator {
 		switch (s.source) {
 		case Source::Tone:
 			text = std::format("{} {}", name(s.waveform), format_hz(s.frequency));
-			if (s.modulation == Modulation::Sweep) text += " -> " + format_hz(s.sweep_to);
-			else if (s.modulation != Modulation::None) text += std::format(", {} {}", name(s.modulation), format_hz(s.message_hz));
+			if (s.modulation == Modulation::Sweep) {
+				text += " -> " + format_hz(s.sweep_to);
+			}
+			else if (s.modulation != Modulation::None) {
+				text += std::format(", {} {}", name(s.modulation), format_hz(s.message_hz));
+			}
 			break;
-		case Source::Noise:
-			text = "Noise";
-			break;
+		case Source::Noise: text = "Noise"; break;
 		case Source::Digital:
 			text = std::format("{} {:g} baud", name(s.scheme), s.symbol_rate);
-			if (s.line_code == digital::LineCode::Manchester) text += ", Manchester";
-			if (s.frequency != 0.0f) text += " on " + format_hz(s.frequency);
+			if (s.line_code == digital::LineCode::Manchester) {
+				text += ", Manchester";
+			}
+			if (s.frequency != 0.0f) {
+				text += " on " + format_hz(s.frequency);
+			}
 			break;
 		}
-		if (s.iq) text += " (I/Q)";
-		if (s.add_noise) text += std::format(", SNR {:g} dB", s.snr_db);
+		if (s.iq) {
+			text += " (I/Q)";
+		}
+		if (s.add_noise) {
+			text += std::format(", SNR {:g} dB", s.snr_db);
+		}
 		return text;
 	}
 
 	[[nodiscard]] inline std::expected<Signal, std::string> synthesize(const Settings& s) {
-		if (!(s.sample_rate > 0.0f) || !(s.seconds > 0.0f)) return std::unexpected("Sample rate and duration must be greater than 0");
+		if (!(s.sample_rate > 0.0f) || !(s.seconds > 0.0f)) {
+			return std::unexpected("Sample rate and duration must be greater than 0");
+		}
 		const double frames = static_cast<double>(s.sample_rate) * s.seconds;
-		if (frames > 200e6) return std::unexpected("That would be over 200 million samples; shorten it or lower the sample rate");
+		if (frames > 200e6) {
+			return std::unexpected("That would be over 200 million samples; shorten it or lower the sample rate");
+		}
 
 		// What is sent: the bits, Manchester-coded if asked (two "chips" per bit).
-		const std::vector<bool> bits = digital::parse_bits(s.line_code == digital::LineCode::Manchester ? digital::manchester_encode(s.bits) : s.bits);
-		if (s.source == Source::Digital && bits.empty()) return std::unexpected("Type a bit pattern of 0s and 1s");
-		if (s.source == Source::Digital && !(s.symbol_rate > 0.0f)) return std::unexpected("The symbol rate must be greater than 0");
+		const std::vector<bool> bits = digital::parse_bits(
+			s.line_code == digital::LineCode::Manchester ? digital::manchester_encode(s.bits) : s.bits
+		);
+		if (s.source == Source::Digital && bits.empty()) {
+			return std::unexpected("Type a bit pattern of 0s and 1s");
+		}
+		if (s.source == Source::Digital && !(s.symbol_rate > 0.0f)) {
+			return std::unexpected("The symbol rate must be greater than 0");
+		}
 
-		const auto count = static_cast<std::size_t>(frames);
-		const double rate = s.sample_rate;
-		std::vector<std::vector<float>> channels(s.iq ? 2 : 1, std::vector<float>(count));
-		std::mt19937 rng{ s.seed };
+		const auto                       count = static_cast<std::size_t>(frames);
+		const double                     rate = s.sample_rate;
+		std::vector<std::vector<float>>  channels(s.iq ? 2 : 1, std::vector<float>(count));
+		std::mt19937                     rng{ s.seed };
 		std::normal_distribution<double> noise{ 0.0, s.amplitude / 3.0 }; // 99.7 % of samples within +-amplitude
-		double phase = 0.0;
+		double                           phase = 0.0;
 
 		for (std::size_t n = 0; n < count; ++n) {
-			const double t = static_cast<double>(n) / rate;
+			const double         t = static_cast<double>(n) / rate;
 			std::complex<double> z; // the I/Q value; a real signal keeps the real part (I)
 
 			switch (s.source) {
 			case Source::Tone: {
-				double amplitude = s.amplitude;
-				double frequency = s.frequency;
+				double       amplitude = s.amplitude;
+				double       frequency = s.frequency;
 				const double message = std::sin(tau * s.message_hz * t);
 				switch (s.modulation) {
 				case Modulation::None:  break;
@@ -164,47 +187,56 @@ namespace sig::generator {
 				case Modulation::Sweep: frequency += (s.sweep_to - s.frequency) * t / s.seconds; break;
 				}
 				// I/Q: Q lags I by a quarter period, so a positive frequency turns counter-clockwise.
-				z = amplitude * std::complex<double>{ wave(s.waveform, phase), wave(s.waveform, phase - std::numbers::pi / 2.0) };
+				z = amplitude *
+				    std::complex<double>{ wave(s.waveform, phase), wave(s.waveform, phase - std::numbers::pi / 2.0) };
 				phase = std::fmod(phase + tau * frequency / rate, tau); // accumulate, so frequency changes stay smooth
 				break;
 			}
-			case Source::Noise:
-				z = { noise(rng), noise(rng) };
-				break;
+			case Source::Noise:   z = { noise(rng), noise(rng) }; break;
 			case Source::Digital: {
 				const std::size_t per_symbol = digital::bits_per_symbol(s.scheme);
-				const auto first_bit = static_cast<std::size_t>(t * s.symbol_rate) * per_symbol;
-				const bool b0 = bits[first_bit % bits.size()], b1 = bits[(first_bit + 1) % bits.size()];
+				const auto        first_bit = static_cast<std::size_t>(t * s.symbol_rate) * per_symbol;
+				const bool        b0 = bits[first_bit % bits.size()], b1 = bits[(first_bit + 1) % bits.size()];
 				if (s.scheme == digital::Scheme::FSK) {
 					// The frequency moves up or down per bit; the phase runs on smoothly (no jumps).
 					z = std::polar(static_cast<double>(s.amplitude), phase);
 					phase = std::fmod(phase + tau * (s.frequency + (b0 ? 1.0 : -1.0) * s.fsk_deviation) / rate, tau);
 				}
 				else {
-					z = static_cast<double>(s.amplitude) * digital::symbol(s.scheme, b0, b1) * std::polar(1.0, tau * s.frequency * t); // on a carrier, if frequency != 0
+					z = static_cast<double>(s.amplitude) * digital::symbol(s.scheme, b0, b1) *
+					    std::polar(1.0, tau * s.frequency * t); // on a carrier, if frequency != 0
 				}
 				break;
 			}
 			}
 
 			channels[0][n] = static_cast<float>(z.real());
-			if (s.iq) channels[1][n] = static_cast<float>(z.imag());
+			if (s.iq) {
+				channels[1][n] = static_cast<float>(z.imag());
+			}
 		}
 
 		Signal signal{
 			.name = describe(s),
-			.description = std::format("Generated: {}, {} sample rate, {:g} s.", describe(s), format_hz(rate), s.seconds),
+			.description =
+				std::format("Generated: {}, {} sample rate, {:g} s.", describe(s), format_hz(rate), s.seconds),
 			.sample_rate = s.sample_rate,
 			.default_view_seconds = 0.02f,
 			.layout = s.iq ? Layout::IQ : Layout::Real,
 			.channels = std::move(channels),
 		};
 		// Show a few periods / symbols at first.
-		if (s.source == Source::Digital) signal.default_view_seconds = 8.0f / s.symbol_rate;
-		else if (s.source == Source::Tone && s.frequency != 0.0f) signal.default_view_seconds = 4.0f / std::abs(s.frequency);
+		if (s.source == Source::Digital) {
+			signal.default_view_seconds = 8.0f / s.symbol_rate;
+		}
+		else if (s.source == Source::Tone && s.frequency != 0.0f) {
+			signal.default_view_seconds = 4.0f / std::abs(s.frequency);
+		}
 		signal.default_view_seconds = std::clamp(signal.default_view_seconds, 1e-5f, std::min(10.0f, s.seconds));
 
-		if (s.add_noise) return transform::add_noise(signal, s.snr_db, s.seed + 1);
+		if (s.add_noise) {
+			return transform::add_noise(signal, s.snr_db, s.seed + 1);
+		}
 		return signal;
 	}
 
