@@ -193,6 +193,19 @@ namespace {
 			qpsk_demo,
 			"Digital window: set Scheme to QPSK. Constellation: four fuzzy clusters. Bits: the decoded data.",
 		},
+		Lesson{
+			"Error correction and interleaving",
+			"Noise always breaks a few bits. Error correction adds redundancy in a clever way, so the receiver can repair "
+			"them without asking again, like spelling 'M as in Mike' on a bad phone line. Polar codes (used in 5G) do this "
+			"with codewords of N bits, of which K carry the message.\n\n"
+			"A receiver also knows how sure it is of every bit ('soft bits'), and a good decoder suspects the doubtful "
+			"ones first. Errors that come in a burst (a click, a fade) are the hardest: too many in one codeword. An "
+			"interleaver shuffles the bits before sending and back after receiving, so a burst becomes a few scattered "
+			"errors spread over many codewords, which each can repair.\n\n"
+			"Open the Error correction window (Windows menu). Its default damage is a burst of 32 wrong bits: switch the "
+			"interleaver between None and Block and watch the error map and the decoded message. 'Make a signal from the "
+			"sent bits' turns it into a real signal you can hear, add noise to (Transform) and decode again.",
+		},
 	};
 
 	// ---- puzzles: a signal with something hidden in it ----------------------------------------------

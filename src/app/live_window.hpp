@@ -15,7 +15,8 @@
 // Live input: the microphone, or a radio through rtl_tcp. The newest few seconds become a signal like
 // any other ("Live: ..."), updated several times a second, so every window works on it live: the
 // spectrum, the spectrogram (a scrolling waterfall), the tuner, the digital decoder.
-// "Keep a copy" freezes what is there now as a normal signal.
+// "Keep a copy" freezes what is there now as a normal signal; "Record" keeps everything from now until
+// "Stop recording" (not only the newest seconds) and then shows it in the viewer, to play back.
 class LiveWindow {
 public:
 	static constexpr const char* title = "Live";
@@ -37,6 +38,8 @@ private:
 	void start(Workspace& ws);
 	void stop();
 	void update(Workspace& ws);
+	void start_recording();
+	void finish_recording(Workspace& ws); // the recording becomes a signal in the library, shown in the viewer
 
 	Source         source_ = Source::Microphone;
 	RtlTcpSettings radio_;
@@ -51,4 +54,7 @@ private:
 	std::chrono::steady_clock::time_point last_update_{};
 	double                     received_ = 0.0; // samples, for the rate shown
 	std::chrono::steady_clock::time_point started_{};
+
+	bool               recording_ = false;
+	std::vector<float> recorded_i_, recorded_q_;
 };

@@ -8,11 +8,13 @@
 #include <string_view>
 
 #include "core/analysis.hpp"
+#include "core/coding.hpp"
 #include "core/audio_analysis.hpp"
 #include "core/detect.hpp"
 #include "core/digital.hpp"
 #include "core/examples.hpp"
 #include "core/generator.hpp"
+#include "core/radio_link.hpp"
 #include "core/recipe.hpp"
 #include "core/transforms.hpp"
 
@@ -385,6 +387,75 @@ namespace {
 		check(analysis::levels(clipped, 0, clipped.frames()).clipped > 1000, "clipping is counted", static_cast<double>(analysis::levels(clipped, 0, clipped.frames()).clipped));
 	}
 
+	// ---- error correction (AFF3CT) -------------------------------------------------------------------------
+
+	void error_correction() {
+		using namespace sig::coding;
+		const std::string text = "Hello from sig-viz! Polar codes repair the bits a noisy channel breaks, "
+			"and the interleaver spreads bursts of errors so that no codeword gets too many.";
+		const Bits message = text_to_bits(text);
+		check(bits_to_text(message) == text, "text -> bits -> text");
+
+		for (const Decoder decoder : all_decoders) {
+			const CodeSpec code{ .decoder = decoder };
+			const auto tx = transmit(message, code, {});
+			const auto rx = receive(*tx, perfect_soft(tx->sent));
+			check(rx && rx->decoded == message, std::format("polar, {}: clean channel decodes exactly", name(decoder)), rx ? static_cast<double>(rx->decoded_errors) : -1);
+		}
+
+		// A burst of 32 confident errors: too many for one codeword, fine once interleaved over 11.
+		const std::vector<Damage> burst{ Damage{ .pattern = Pattern::Burst, .effect = Effect::FlipHard } };
+		{
+			const auto tx = transmit(message, {}, { .kind = Interleaver::None });
+			const auto rx = receive(*tx, apply(perfect_soft(tx->sent), burst));
+			check(rx && rx->channel_errors == 32 && rx->frame_errors >= 1, "burst without interleaver: a codeword fails", rx ? static_cast<double>(rx->frame_errors) : -1);
+		}
+		{
+			const auto tx = transmit(message, {}, { .kind = Interleaver::Block });
+			const auto rx = receive(*tx, apply(perfect_soft(tx->sent), burst));
+			check(tx->rows == static_cast<int>(tx->frames) && rx && rx->decoded_errors == 0, "burst with block interleaver: all repaired", rx ? static_cast<double>(rx->decoded_errors) : -1);
+		}
+		{
+			const auto tx = transmit(message, {}, { .kind = Interleaver::Random, .seed = 3 });
+			auto soft = perfect_soft(tx->sent);
+			const auto rx = receive(*tx, apply(soft, { { Damage{ .pattern = Pattern::Random, .effect = Effect::Erase, .probability = 0.2f } } }));
+			check(rx && rx->erased > 400 && rx->decoded_errors == 0, "20 % erasures, random interleaver: all repaired", rx ? static_cast<double>(rx->erased) : -1);
+		}
+		{
+			const auto every = apply(perfect_soft(Bits(100, 0)), { { Damage{ .pattern = Pattern::EveryNth, .effect = Effect::Flip, .every = 10, .offset = 3 } } });
+			check(std::ranges::count_if(every, [](float v) { return v < 0.0f; }) == 10 && every[3] < 0.0f && every[13] < 0.0f, "damage: one bit every 10");
+		}
+		{
+			const auto uncoded = transmit(message, { .enabled = false }, { .kind = Interleaver::None });
+			const auto rx = receive(*uncoded, apply(perfect_soft(uncoded->sent), burst));
+			check(rx && rx->decoded_errors == 32, "without a code, the burst stays", rx ? static_cast<double>(rx->decoded_errors) : -1);
+		}
+		check(!transmit(message, { .crc = Crc::None }, {}), "CA-SCL without a CRC is refused");
+
+		// Error-rate curve: the code beats no code at 3 dB.
+		const auto curve = ber_curve({}, 3.0, 3.0, 1.0, 300, std::stop_source{}.get_token());
+		check(curve.size() == 1 && curve[0].ber < curve[0].uncoded / 10.0, "polar (256,128) at 3 dB: 10x fewer errors than no code", curve.empty() ? -1 : curve[0].ber);
+
+		// Bits -> a real signal on a carrier -> noise -> soft bits -> decoded.
+		for (const auto& [scheme, snr] : { std::pair{ digital::Scheme::BPSK, -12.0f }, { digital::Scheme::QPSK, -9.0f }, { digital::Scheme::OOK, -6.0f }, { digital::Scheme::FSK, -6.0f } }) {
+			const auto tx = transmit(message, {}, {});
+			const link::Settings settings{ .scheme = scheme };
+			const auto signal = link::modulate(tx->sent, settings);
+			const auto noisy = transform::add_noise(*signal, snr, 5);
+			const auto soft = link::demodulate(*noisy, settings, tx->sent.size(), tx->sent);
+			const auto rx = receive(*tx, soft->soft);
+			check(rx && rx->decoded_errors == 0, std::format("{} on 2 kHz, SNR {:g} dB: decoded ({} channel errors)",
+				digital::name(scheme), snr, rx ? rx->channel_errors : 0), rx ? static_cast<double>(rx->decoded_errors) : -1);
+		}
+		{
+			const auto tx = transmit(message, {}, {});
+			const link::Settings settings{ .follow = true };
+			const auto soft = link::demodulate(*link::modulate(tx->sent, settings), settings, tx->sent.size(), tx->sent);
+			const auto rx = receive(*tx, soft->soft);
+			check(rx && rx->decoded_errors == 0, "BPSK with carrier and timing recovery: decoded", rx ? static_cast<double>(rx->channel_errors) : -1);
+		}
+	}
+
 } // namespace
 
 int main() {
@@ -401,6 +472,7 @@ int main() {
 	detection();
 	message_puzzle();
 	audio();
+	error_correction();
 	std::printf("\n%d failure(s)\n", failures);
 	return failures;
 }

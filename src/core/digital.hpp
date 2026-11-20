@@ -166,6 +166,33 @@ namespace sig::digital {
 		return bits;
 	}
 
+	// Like decode(), but keeps how sure each decision is: a "soft bit" per bit, positive for a 0 and
+	// negative for a 1, scaled so that a clean symbol gives about +-1 and one right on the border 0.
+	// Error-correcting decoders repair far more with these than with plain 0s and 1s.
+	[[nodiscard]] inline std::vector<float> soft_decisions(Scheme scheme, std::span<const std::complex<float>> symbols) {
+		std::vector<float> soft;
+		if (symbols.empty()) return soft;
+		float strongest = 0.0f, mean = 0.0f;
+		for (const auto& z : symbols) {
+			strongest = std::max(strongest, std::abs(z));
+			mean += (scheme == Scheme::QPSK ? std::abs(z) / std::numbers::sqrt2_v<float> : std::abs(z.real())) / static_cast<float>(symbols.size());
+		}
+		mean = std::max(mean, 1e-12f);
+		const float threshold = std::max(0.5f * strongest, 1e-12f);
+		for (const auto& z : symbols) {
+			switch (scheme) {
+			case Scheme::OOK:  soft.push_back((threshold - std::abs(z)) / threshold); break; // off = 0 = +1, on = 1 = -1
+			case Scheme::BPSK: soft.push_back(z.real() / mean); break;                        // 0 -> +1
+			case Scheme::FSK:  soft.push_back(-z.real() / mean); break;                       // 1 = higher frequency
+			case Scheme::QPSK:
+				soft.push_back(z.real() / mean);
+				soft.push_back(z.imag() / mean);
+				break;
+			}
+		}
+		return soft;
+	}
+
 	// What decode() needs to look at: the signal itself, or for FSK its frequency over time.
 	[[nodiscard]] inline Signal decision_signal(const Signal& signal, Scheme scheme, double symbol_rate) {
 		if (scheme != Scheme::FSK) return signal;

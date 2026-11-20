@@ -44,6 +44,7 @@ void App::draw() {
 	guide_.draw(ws_);
 	bursts_.draw(ws_);
 	audio_.draw(ws_);
+	coding_.draw(ws_);
 
 	if (pick_tabs_in_ > 0 && --pick_tabs_in_ == 0) {
 		ImGui::SetWindowFocus(GuideWindow::title);
@@ -132,6 +133,7 @@ std::vector<Command> App::commands() {
 	add("Show: Bursts (find transmissions)", [this] { show(bursts_.open, BurstsWindow::title); });
 	add("Show: Audio (tuner, loudness, levels)", [this] { show(audio_.open, AudioWindow::title); });
 	add("Show: Live (microphone, radio)", [this] { show(live_.open, LiveWindow::title); });
+	add("Show: Error correction (polar codes, interleaving)", [this] { show(coding_.open, CodingWindow::title); });
 	add("Show: Guide", [this] { show(guide_.open, GuideWindow::title); });
 
 	for (const auto op : sig::recipe::all_ops) {
@@ -179,12 +181,13 @@ void App::draw_menu_bar() {
 		ImGui::MenuItem(BurstsWindow::title, nullptr, &bursts_.open);
 		ImGui::MenuItem(AudioWindow::title, nullptr, &audio_.open);
 		ImGui::MenuItem(LiveWindow::title, nullptr, &live_.open);
+		ImGui::MenuItem(CodingWindow::title, nullptr, &coding_.open);
 		ImGui::MenuItem(GuideWindow::title, nullptr, &guide_.open);
 		ImGui::Separator();
 		if (ImGui::MenuItem("Reset layout")) {
 			viewer_.open = spectrum_.open = spectrogram_.open = compare_.open = true;
 			transform_.open = generator_.open = digital_.open = guide_.open = true;
-			bursts_.open = audio_.open = live_.open = true;
+			bursts_.open = audio_.open = live_.open = coding_.open = true;
 			reset_layout_ = true;
 		}
 		ImGui::EndMenu();
@@ -253,7 +256,8 @@ void App::draw_status_bar() {
 	ImGui::End();
 }
 
-// Guide, Generator, Transform, Live and Bursts on the left; the viewer (with Compare and Digital as tabs)
+// Guide, Generator, Transform, Live and Bursts on the left; the viewer (with Compare, Digital and Error
+// correction as tabs)
 // in the middle; Spectrum (and Audio) above Spectrogram on the right.
 void App::build_default_layout(ImGuiID dockspace) {
 	ImGui::DockBuilderRemoveNode(dockspace);
@@ -272,6 +276,7 @@ void App::build_default_layout(ImGuiID dockspace) {
 	ImGui::DockBuilderDockWindow(GuideWindow::title, left);
 	ImGui::DockBuilderDockWindow(CompareWindow::title, centre);
 	ImGui::DockBuilderDockWindow(DigitalWindow::title, centre);
+	ImGui::DockBuilderDockWindow(CodingWindow::title, centre);
 	ImGui::DockBuilderDockWindow(SignalViewer::title, centre);
 	ImGui::DockBuilderDockWindow(SpectrumWindow::title, right);
 	ImGui::DockBuilderDockWindow(AudioWindow::title, right);

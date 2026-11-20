@@ -7,6 +7,7 @@
 
 #include "audio_window.hpp"
 #include "bursts_window.hpp"
+#include "coding_window.hpp"
 #include "command_palette.hpp"
 #include "compare_window.hpp"
 #include "digital_window.hpp"
@@ -49,6 +50,7 @@ private:
 	BurstsWindow      bursts_;
 	AudioWindow       audio_;
 	LiveWindow        live_;
+	CodingWindow      coding_;
 
 	CommandPalette palette_;
 

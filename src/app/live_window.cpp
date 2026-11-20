@@ -17,6 +17,8 @@ namespace {
 
 	std::uint64_t next_live_id = 1;
 
+	constexpr std::size_t max_recorded = 200'000'000; // samples per channel (800 MB): then the recording stops by itself
+
 	std::string time_of_day() {
 		const std::time_t now = std::time(nullptr);
 		std::tm local{};
@@ -60,9 +62,36 @@ void LiveWindow::stop() {
 	track_.reset(); // the last update stays in the library as a normal signal
 }
 
+void LiveWindow::start_recording() {
+	recorded_i_.clear();
+	recorded_q_.clear();
+	recording_ = true;
+}
+
+void LiveWindow::finish_recording(Workspace& ws) {
+	if (!recording_) return;
+	recording_ = false;
+	if (recorded_i_.empty() || !input_) return;
+	sig::Signal signal{
+		.name = std::format("Recording {}", time_of_day()),
+		.description = "",
+		.sample_rate = input_->sample_rate(),
+		.default_view_seconds = source_ == Source::Microphone ? 0.02f : 0.002f,
+		.layout = input_->iq() ? sig::Layout::IQ : sig::Layout::Real,
+		.channels = { std::move(recorded_i_) },
+		.center_hz = source_ == Source::Radio ? radio_.frequency_hz : 0.0,
+	};
+	if (input_->iq()) signal.channels.push_back(std::move(recorded_q_));
+	signal.description = std::format("{} seconds recorded from the {}.", signal.duration(), name(source_));
+	ws.add_and_select(std::move(signal)); // in the viewer: Space plays it back
+	recorded_i_ = {};
+	recorded_q_ = {};
+}
+
 void LiveWindow::update(Workspace& ws) {
 	if (const std::string error = input_->error(); !error.empty()) {
 		error_ = error;
+		finish_recording(ws);
 		stop();
 		return;
 	}
@@ -70,6 +99,16 @@ void LiveWindow::update(Workspace& ws) {
 	const std::size_t before = i_.size();
 	input_->take(i_, q_);
 	received_ += static_cast<double>(i_.size() - before);
+
+	if (recording_) {
+		const auto from = static_cast<std::ptrdiff_t>(before);
+		recorded_i_.insert(recorded_i_.end(), i_.begin() + from, i_.end());
+		if (!q_.empty()) recorded_q_.insert(recorded_q_.end(), q_.begin() + from, q_.end());
+		if (recorded_i_.size() >= max_recorded) {
+			finish_recording(ws);
+			error_ = "The recording got too big and was stopped.";
+		}
+	}
 
 	// Keep only the newest keep_seconds_.
 	const auto keep = static_cast<std::size_t>(keep_seconds_ * input_->sample_rate());
@@ -147,9 +186,30 @@ void LiveWindow::draw(Workspace& ws) {
 
 	if (!input_) {
 		if (ImGui::Button("Start", { ui::em(6.0f), 0.0f })) start(ws);
+		ImGui::SameLine();
+		if (ImGui::Button("Record", { ui::em(6.0f), 0.0f })) {
+			start(ws);
+			if (input_) start_recording();
+		}
+		ui::explain("Starts and records everything until you press Stop recording.");
 	}
 	else {
-		if (ImGui::Button("Stop", { ui::em(6.0f), 0.0f })) stop();
+		if (ImGui::Button("Stop", { ui::em(6.0f), 0.0f })) {
+			finish_recording(ws);
+			stop();
+		}
+		ImGui::SameLine();
+		if (!recording_) {
+			if (ImGui::Button("Record", { ui::em(6.0f), 0.0f })) start_recording();
+			ui::explain("Records everything from now on (not only the newest seconds) until you press Stop recording.");
+		}
+		else {
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.75f, 0.15f, 0.15f, 1.0f });
+			const bool done = ImGui::Button(std::format("Stop recording ({:.1f} s)", static_cast<double>(recorded_i_.size()) / input_->sample_rate()).c_str());
+			ImGui::PopStyleColor();
+			if (done) finish_recording(ws);
+			ui::explain("The recording becomes a signal in the list and is shown in the viewer: press Space to play it back.");
+		}
 		ImGui::SameLine();
 		if (ImGui::Button("Keep a copy") && track_) {
 			sig::Signal copy = track_->signal();

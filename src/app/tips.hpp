@@ -142,4 +142,55 @@ namespace tips {
 		"Keeps a grey copy of the spectrum as it is now. Change something (a filter, another part of the "
 		"signal) and compare the live trace with it: before and after on one plot.";
 
+	// ---- error correction ----
+	inline constexpr const char* polar_code =
+		"Forward error correction: the sender adds clever redundancy, so the receiver can repair wrong bits "
+		"without asking for them again. Like spelling a name on the phone: 'M as in Mike' survives a bad line.\n\n"
+		"Polar codes (used in 5G) split N positions into good and bad ones: the good ones carry data, the bad "
+		"ones are 'frozen' to 0, which the decoder knows. Off: the bits are sent as they are, to compare.\n"
+		"Encoders and decoders come from the AFF3CT library.";
+	inline constexpr const char* polar_nk =
+		"N: bits per codeword, a power of two. K: how many of them carry information (CRC included).\n"
+		"The rest (N - K) is redundancy. Rate K/N: 0.5 = half the bits are data. Lower rate = repairs more, "
+		"but sends more. Longer codewords repair better at the same rate.";
+	inline constexpr const char* polar_decoder =
+		"SC decides bit after bit and never looks back: one early mistake ruins the rest.\n"
+		"SCL keeps the L most likely versions (a list) and picks the best at the end: like keeping several "
+		"guesses at a crossword answer until the crossing words decide.\n"
+		"CA-SCL picks the version whose CRC checks out: the strongest.";
+	inline constexpr const char* crc =
+		"A checksum on every codeword's data (cyclic redundancy check). The receiver recomputes it: if it does not "
+		"match, decoding failed. CA-SCL also uses it to choose between its guesses.";
+	inline constexpr const char* polar_design =
+		"Which positions are good or bad depends on how noisy the channel is expected to be. This is the "
+		"signal-to-noise ratio the code is tuned for (Eb/N0, see the error-rate curve).";
+	inline constexpr const char* interleaver =
+		"Shuffles the bits before sending, and puts them back in order after receiving. Errors often come in "
+		"bursts (a click, a fade); shuffled back, a burst becomes a few scattered errors in many codewords, "
+		"which each can repair, instead of many errors in one codeword, which cannot.\n"
+		"Like not putting all eggs in one basket.";
+	inline constexpr const char* coding_channel =
+		"Damage the bits directly: the soft bits are perfect (+1 / -1) and only your damage steps change them.\n\n"
+		"Receive the viewer's signal: press 'Make a signal from the sent bits' first. The viewer's signal is then "
+		"demodulated (radio settings) into soft bits, so noise, filters and other changes from the other windows "
+		"show up here. The damage steps come on top.";
+	inline constexpr const char* damage =
+		"Soft bits: + means 0, - means 1, and the size says how sure the receiver is.\n"
+		"Flip (soft): the sign changes, the confidence stays: a confident mistake.\n"
+		"Flip (hard): becomes a fully confident mistake.\n"
+		"Erase: becomes 0, 'no idea'. A decoder repairs about twice as many erasures as errors.\n"
+		"Add noise: like a noisy radio channel; small values may cross 0 and become wrong.";
+	inline constexpr const char* error_map =
+		"Top: every bit as it went over the air. Bottom: the same bits after deinterleaving, one codeword per row. "
+		"A burst on top (a red run) is spread out below. The strip on the left of each row turns red when that "
+		"codeword could not be repaired.";
+	inline constexpr const char* soft_bits =
+		"Every received bit as a dot: its soft value. Dots far from 0 are sure, dots near 0 are doubtful. "
+		"Red dots ended up on the wrong side of 0: those are the bit errors before decoding. Soft decoders use "
+		"the doubt: a doubtful bit is the first suspect.";
+	inline constexpr const char* eb_n0 =
+		"Eb/N0: signal-to-noise ratio per message bit, in dB. A code spends energy on redundant bits; Eb/N0 counts "
+		"only the bits that carry the message, so codes of different rates compare fairly. Every 3 dB doubles the energy.\n"
+		"At very low Eb/N0 a code can be worse than none; then it falls steeply (the 'waterfall').";
+
 } // namespace tips
